@@ -141,6 +141,25 @@
       text-overflow: ellipsis;
     }
 
+    .timer-order {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      line-height: 18px;
+      text-align: center;
+      background: #444;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-right: 8px;
+      color: #aaa;
+    }
+
+    .timer-item.running .timer-order {
+      background: #2d5a45;
+      color: #4ade80;
+    }
+
     .timer-time {
       font-size: 12px;
       color: #888;
@@ -557,6 +576,16 @@
             </div>
             <label class="toggle">
               <input type="checkbox" id="play-sounds">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Show task number in tray</div>
+              <div class="setting-description">Display 1-9 in menu bar for active timer</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="use-task-number-tray" checked>
               <span class="toggle-slider"></span>
             </label>
           </div>

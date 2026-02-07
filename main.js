@@ -10,30 +10,37 @@ let mainWindow = null;
 const WINDOW_WIDTH = 360;
 const WINDOW_HEIGHT = 520;
 
-// Tray icons (16x16 PNG base64)
-// Idle icon: simple clock outline
-const TRAY_ICON_IDLE = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAAA0klEQVQ4y62TsQ3CMBAE30FKRBfpgA5CBxQAHVACJUABdJAOKIAOUgJ0QAl0EDoIA4GQ4H+xZEt2gCefPL67f7vNVHwxFUBEGOEcEdqKP/0OHOELOMDxH4ABjoI7cPwLYIhz4ARMIILF9oDRN4AGCOAErF0ACVA9wAI0wAnYu4C5CyiNXkSEA4TuAtLDl0Zu4gIq4BhoJA4QQg1EcBwBM9cL1q4htww0wBLYehdYqBesvZnKh5TeRSowwLl6hQvwpZU7W6CnB/AALHpvqd+B/78vgXCTTJW9gAIAAAAASUVORK5CYII=';
+// Tray icon paths
+const TRAY_ICONS_PATH = path.join(__dirname, 'assets', 'tray-icons');
 
-// Active icon: clock with green dot indicator (recording)
-const TRAY_ICON_ACTIVE = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABCElEQVQ4y6WTsU7DMBCG/4uTlKYdkBiYWHgANt6AhQdg6MbCxsLGwsLExsLGxMLCxMTExMbEwkBVVaVpYufsA1dqSUvLgCXL8t397vP5Lgh+SERAzPgDAFaSBB8Pj2qfzTrR6zfY3S+U29kRO3tFF+EYOANfD49K5rSOnz6gmO9iOL1Er9+AJy8+7LJqgee7Z9WEwSsQjWV4uEYy62AwvfQRJAx7fLqBFD/VmTjGYHoJRGMAwP7xFZK5WXkbEIddhGNfAR9hwC2cR2MEuzfI5ru+ipwIh10/QZAEKOY7DQSd+3PMd9twHtCdXwEJQ6ub7+H08gH7x1dYKP/P32DziC9gv9P7p98DkKZmEg+YKRAAAAAASUVORK5CYII=';
+function createTrayIcon(timerIndex) {
+  let iconPath;
 
-function createTrayIcon(isActive) {
-  const iconBase64 = isActive ? TRAY_ICON_ACTIVE : TRAY_ICON_IDLE;
-  let icon = nativeImage.createFromDataURL(`data:image/png;base64,${iconBase64}`);
+  if (timerIndex === null) {
+    // No timer running - use paused icon
+    iconPath = path.join(TRAY_ICONS_PATH, 'pausedTemplate.png');
+  } else if (settings.useTaskNumberAsTrayIcon && timerIndex >= 1 && timerIndex <= 9) {
+    // Timer 1-9 with setting enabled - use numbered icon
+    iconPath = path.join(TRAY_ICONS_PATH, `${timerIndex}Template.png`);
+  } else {
+    // Timer 10+ or setting disabled - use generic recording icon
+    iconPath = path.join(TRAY_ICONS_PATH, 'recordingTemplate.png');
+  }
+
+  const icon = nativeImage.createFromPath(iconPath);
 
   // For macOS, mark as template image for proper dark/light mode support
-  // But only for idle icon - active icon should show color
-  if (process.platform === 'darwin' && !isActive) {
+  if (process.platform === 'darwin') {
     icon.setTemplateImage(true);
   }
 
   return icon;
 }
 
-function updateTrayIcon(isActive) {
+function updateTrayIcon(timerIndex) {
   if (tray) {
-    tray.setImage(createTrayIcon(isActive));
-    tray.setToolTip(isActive ? 'Time Tracker (Recording)' : 'Time Tracker');
+    tray.setImage(createTrayIcon(timerIndex));
+    tray.setToolTip(timerIndex !== null ? 'Time Tracker (Recording)' : 'Time Tracker');
   }
 }
 
@@ -66,7 +73,7 @@ function playSound(soundType) {
 }
 
 function createTray() {
-  tray = new Tray(createTrayIcon(false));
+  tray = new Tray(createTrayIcon(null));
   tray.setToolTip('Time Tracker');
 
   // Toggle window on tray click
@@ -205,7 +212,14 @@ app.whenReady().then(() => {
 
   // Check if there's a running timer on startup (crash recovery) and update tray icon
   const initialState = computeTimerState();
-  updateTrayIcon(initialState.runningTimer !== null);
+  let timerIndex = null;
+  if (initialState.runningTimer !== null) {
+    const index = initialState.timers.findIndex(t => t.name === initialState.runningTimer);
+    if (index !== -1) {
+      timerIndex = index + 1; // 1-based index
+    }
+  }
+  updateTrayIcon(timerIndex);
 });
 
 app.on('window-all-closed', () => {
@@ -262,7 +276,8 @@ const DEFAULT_SETTINGS = {
     pauseAll: 'CmdOrCtrl+Shift+P',
     timers: {}
   },
-  timerIcons: {}
+  timerIcons: {},
+  useTaskNumberAsTrayIcon: true
 };
 
 // In-memory state
@@ -729,8 +744,17 @@ function pauseAll() {
 function notifyRenderer() {
   const state = computeTimerState();
 
-  // Update tray icon based on running timer
-  updateTrayIcon(state.runningTimer !== null);
+  // Compute running timer's index (1-based position in sorted timer list)
+  let timerIndex = null;
+  if (state.runningTimer !== null) {
+    const index = state.timers.findIndex(t => t.name === state.runningTimer);
+    if (index !== -1) {
+      timerIndex = index + 1; // 1-based index
+    }
+  }
+
+  // Update tray icon based on running timer index
+  updateTrayIcon(timerIndex);
 
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('timer:updated', state);
@@ -778,12 +802,26 @@ ipcMain.handle('settings:get', () => {
 
 ipcMain.handle('settings:update', (event, updates) => {
   const oldHotkeys = JSON.stringify(settings.hotkeys);
+  const oldUseTaskNumber = settings.useTaskNumberAsTrayIcon;
   settings = { ...settings, ...updates };
   saveSettings();
 
   // Re-register hotkeys if they changed
   if (JSON.stringify(settings.hotkeys) !== oldHotkeys) {
     registerGlobalHotkeys();
+  }
+
+  // Refresh tray icon if the task number setting changed
+  if (settings.useTaskNumberAsTrayIcon !== oldUseTaskNumber) {
+    const state = computeTimerState();
+    let timerIndex = null;
+    if (state.runningTimer !== null) {
+      const index = state.timers.findIndex(t => t.name === state.runningTimer);
+      if (index !== -1) {
+        timerIndex = index + 1;
+      }
+    }
+    updateTrayIcon(timerIndex);
   }
 
   if (mainWindow && !mainWindow.isDestroyed()) {

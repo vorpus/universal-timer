@@ -89,12 +89,13 @@ function renderTimers(timers, runningTimer) {
     return;
   }
 
-  timerList.innerHTML = timers.map(timer => {
+  timerList.innerHTML = timers.map((timer, index) => {
     const isRunning = runningTimer === timer.name;
+    const orderNumber = index + 1;
     return `
       <div class="timer-item ${isRunning ? 'running' : ''}" data-timer="${timer.name}">
         <div class="timer-info">
-          <div class="timer-name">${escapeHtml(timer.displayName || timer.name)}</div>
+          <div class="timer-name"><span class="timer-order">${orderNumber}</span>${escapeHtml(timer.displayName || timer.name)}</div>
           <div class="timer-time" data-base-elapsed="${timer.elapsedToday}">${formatTime(timer.elapsedToday)}</div>
         </div>
         <button class="timer-btn ${isRunning ? 'pause' : 'play'}" data-action="${isRunning ? 'pause' : 'play'}">
@@ -286,6 +287,7 @@ async function initSettings() {
     if (settings) {
       document.getElementById('pause-others').checked = settings.pauseOthersOnStart ?? true;
       document.getElementById('play-sounds').checked = settings.playSounds ?? false;
+      document.getElementById('use-task-number-tray').checked = settings.useTaskNumberAsTrayIcon ?? true;
 
       const hour = String(settings.dayStartHour ?? 0).padStart(2, '0');
       const minute = String(settings.dayStartMinute ?? 0).padStart(2, '0');
@@ -456,6 +458,14 @@ document.getElementById('pause-others').addEventListener('change', async (e) => 
 document.getElementById('play-sounds').addEventListener('change', async (e) => {
   try {
     await window.timerAPI.updateSettings({ playSounds: e.target.checked });
+  } catch (err) {
+    console.error('Failed to update setting:', err);
+  }
+});
+
+document.getElementById('use-task-number-tray').addEventListener('change', async (e) => {
+  try {
+    await window.timerAPI.updateSettings({ useTaskNumberAsTrayIcon: e.target.checked });
   } catch (err) {
     console.error('Failed to update setting:', err);
   }
