@@ -1,0 +1,18 @@
+0 verbose cli /Users/liz/.nvm/versions/node/v22.14.0/bin/node /Users/liz/.nvm/versions/node/v22.14.0/bin/npm
+1 info using npm@10.9.2
+2 info using node@v22.14.0
+3 silly config load:file:/Users/liz/.nvm/versions/node/v22.14.0/lib/node_modules/npm/npmrc
+4 silly config load:file:/Users/liz/projects/universal-timer/.npmrc
+5 silly config load:file:/Users/liz/.npmrc
+6 silly config load:file:/Users/liz/.nvm/versions/node/v22.14.0/etc/npmrc
+7 verbose title npm test
+8 verbose argv "test"
+9 verbose logfile logs-max:10 dir:/Users/liz/projects/universal-timer/.cache/npm/_logs/2026-02-07T17_10_59_427Z-
+10 verbose logfile /Users/liz/projects/universal-timer/.cache/npm/_logs/2026-02-07T17_10_59_427Z-debug-0.log
+11 silly logfile done cleaning log files
+12 verbose cwd /Users/liz/projects/universal-timer
+13 verbose os Darwin 24.0.0
+14 verbose node v22.14.0
+15 verbose npm  v10.9.2
+16 verbose exit 0
+17 info ok
