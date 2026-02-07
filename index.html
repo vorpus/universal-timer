@@ -54,6 +54,10 @@
       background: #2a2a2a;
     }
 
+    .tab:focus {
+      outline: none;
+    }
+
     .tab.active {
       color: #fff;
       background: #333;
@@ -363,6 +367,117 @@
       background: #2a7edf;
     }
 
+    .action-btn.danger {
+      background: #dc3545;
+    }
+
+    .action-btn.danger:hover {
+      background: #c82333;
+    }
+
+    .action-btn.danger:active {
+      background: #bd2130;
+    }
+
+    /* Hotkey input */
+    .hotkey-input {
+      background: #333;
+      border: 1px solid #444;
+      border-radius: 4px;
+      padding: 6px 10px;
+      color: #e0e0e0;
+      font-size: 12px;
+      font-family: monospace;
+      min-width: 120px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .hotkey-input:hover {
+      border-color: #555;
+    }
+
+    .hotkey-input:focus {
+      outline: none;
+      border-color: #4a9eff;
+      background: #2a2a2a;
+    }
+
+    .hotkey-input.recording {
+      border-color: #4ade80;
+      background: #1e3a2f;
+    }
+
+    .hotkey-input-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hotkey-clear {
+      background: none;
+      border: none;
+      color: #888;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 4px;
+    }
+
+    .hotkey-clear:hover {
+      color: #f87171;
+    }
+
+    /* Toast notification */
+    .toast-container {
+      position: fixed;
+      bottom: 16px;
+      left: 16px;
+      right: 16px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .toast {
+      background: #dc3545;
+      color: #fff;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      animation: toast-in 0.3s ease-out;
+      pointer-events: auto;
+    }
+
+    .toast.fade-out {
+      animation: toast-out 0.3s ease-in forwards;
+    }
+
+    @keyframes toast-in {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes toast-out {
+      from {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      to {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+    }
+
     /* Scrollbar styling */
     ::-webkit-scrollbar {
       width: 6px;
@@ -383,6 +498,7 @@
   </style>
 </head>
 <body>
+  <div class="toast-container" id="toast-container"></div>
   <div class="container">
     <!-- Tab navigation -->
     <div class="tabs">
@@ -462,13 +578,30 @@
           <div class="setting-row">
             <div>
               <div class="setting-label">Pause all timers</div>
-              <div class="setting-description" id="pause-all-hotkey">CmdOrCtrl+Shift+P</div>
+              <div class="setting-description">Stop all running timers</div>
+            </div>
+            <div class="hotkey-input-container">
+              <input type="text" class="hotkey-input" id="pause-all-hotkey" readonly placeholder="Click to set">
+              <button class="hotkey-clear" id="pause-all-clear" title="Clear hotkey">&times;</button>
             </div>
           </div>
+          <div id="timer-hotkeys-container"></div>
         </div>
 
         <div class="settings-section">
           <div class="settings-section-title">Data</div>
+          <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+            <div style="width: 100%; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <div class="setting-label">Event log location</div>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button class="action-btn" id="change-path-btn" style="font-size: 12px; padding: 6px 12px;">Change</button>
+                <button class="action-btn" id="reset-path-btn" style="font-size: 12px; padding: 6px 12px; background: #555;">Reset</button>
+              </div>
+            </div>
+            <div class="setting-description" id="events-path" style="word-break: break-all; font-family: monospace; font-size: 11px;"></div>
+          </div>
           <div class="setting-row">
             <div>
               <div class="setting-label">Export data</div>
@@ -482,6 +615,17 @@
               <div class="setting-description">Restore from backup file</div>
             </div>
             <button class="action-btn" id="import-btn">Import</button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">Application</div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Quit Time Tracker</div>
+              <div class="setting-description">Exit the application</div>
+            </div>
+            <button class="action-btn danger" id="exit-btn">Exit</button>
           </div>
         </div>
       </div>

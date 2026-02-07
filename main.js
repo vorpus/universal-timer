@@ -244,6 +244,9 @@ function getSettingsPath() {
 }
 
 function getEventsPath() {
+  if (settings.eventLogPath) {
+    return settings.eventLogPath;
+  }
   return path.join(getDataPath(), 'events.jsonl');
 }
 
@@ -279,7 +282,7 @@ function loadSettings() {
       settings = { ...DEFAULT_SETTINGS, ...JSON.parse(data) };
     }
   } catch (err) {
-    console.error('Failed to load settings:', err);
+    notifyError('Failed to load settings - using defaults', err);
     settings = { ...DEFAULT_SETTINGS };
   }
   return settings;
@@ -292,7 +295,7 @@ function saveSettings() {
     fs.writeFileSync(tempPath, JSON.stringify(settings, null, 2));
     fs.renameSync(tempPath, settingsPath);
   } catch (err) {
-    console.error('Failed to save settings:', err);
+    notifyError('Failed to save settings', err);
   }
 }
 
@@ -300,13 +303,20 @@ function saveSettings() {
 // Event Log Management
 // ========================================
 
+function notifyError(message, details = null) {
+  console.error(message, details);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('app:error', { message, details: details?.message || details });
+  }
+}
+
 function appendEvent(event) {
   try {
     const eventsPath = getEventsPath();
     const line = JSON.stringify(event) + '\n';
     fs.appendFileSync(eventsPath, line);
   } catch (err) {
-    console.error('Failed to append event:', err);
+    notifyError('Failed to save timer event', err);
   }
 }
 
@@ -328,7 +338,7 @@ function loadEvents() {
     }
     return events;
   } catch (err) {
-    console.error('Failed to load events:', err);
+    notifyError('Failed to load timer history', err);
     return [];
   }
 }
@@ -889,6 +899,52 @@ ipcMain.handle('data:import', async () => {
     console.error('Import failed:', err);
     return { success: false, error: err.message };
   }
+});
+
+ipcMain.handle('app:quit', () => {
+  app.quit();
+});
+
+ipcMain.handle('data:getEventsPath', () => {
+  return getEventsPath();
+});
+
+ipcMain.handle('data:setEventsPath', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Select Event Log Location',
+      defaultPath: path.dirname(getEventsPath()),
+      properties: ['openDirectory', 'createDirectory']
+    });
+
+    if (result.canceled || !result.filePaths.length) {
+      return { success: false, canceled: true };
+    }
+
+    const newPath = path.join(result.filePaths[0], 'events.jsonl');
+    const oldPath = getEventsPath();
+
+    // Copy existing events to new location if they exist
+    if (fs.existsSync(oldPath) && oldPath !== newPath) {
+      const existingData = fs.readFileSync(oldPath, 'utf8');
+      fs.writeFileSync(newPath, existingData);
+    }
+
+    // Update settings
+    settings.eventLogPath = newPath;
+    saveSettings();
+
+    return { success: true, path: newPath };
+  } catch (err) {
+    console.error('Failed to set events path:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('data:resetEventsPath', () => {
+  settings.eventLogPath = null;
+  saveSettings();
+  return { success: true, path: getEventsPath() };
 });
 
 // ========================================

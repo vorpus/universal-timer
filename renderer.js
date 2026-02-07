@@ -1,3 +1,22 @@
+// Toast notifications
+function showToast(message, duration = 5000) {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = message;
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.classList.add('fade-out');
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
+// Listen for errors from main process
+window.timerAPI.onError((data) => {
+  showToast(data.message);
+});
+
 // Tab switching
 const tabs = document.querySelectorAll('.tab');
 const tabContents = document.querySelectorAll('.tab-content');
@@ -109,6 +128,22 @@ function renderTimers(timers, runningTimer) {
     startLiveUpdate();
   } else {
     stopLiveUpdate();
+  }
+
+  // Update timer hotkeys in settings if visible
+  updateTimerHotkeysIfNeeded();
+}
+
+// Update timer hotkeys section if it exists and timers have changed
+async function updateTimerHotkeysIfNeeded() {
+  const container = document.getElementById('timer-hotkeys-container');
+  if (container) {
+    try {
+      const settings = await window.timerAPI.getSettings();
+      renderTimerHotkeys(settings.hotkeys?.timers ?? {});
+    } catch (err) {
+      console.error('Failed to update timer hotkeys:', err);
+    }
   }
 }
 
@@ -256,12 +291,158 @@ async function initSettings() {
       const minute = String(settings.dayStartMinute ?? 0).padStart(2, '0');
       document.getElementById('day-start').value = `${hour}:${minute}`;
 
-      document.getElementById('pause-all-hotkey').textContent = settings.hotkeys?.pauseAll ?? 'CmdOrCtrl+Shift+P';
+      document.getElementById('pause-all-hotkey').value = settings.hotkeys?.pauseAll ?? '';
+
+      // Render per-timer hotkeys
+      renderTimerHotkeys(settings.hotkeys?.timers ?? {});
     }
+
+    // Load events path
+    const eventsPath = await window.timerAPI.getEventsPath();
+    document.getElementById('events-path').textContent = eventsPath;
   } catch (err) {
     console.error('Failed to load settings:', err);
   }
 }
+
+// Render per-timer hotkeys in settings
+function renderTimerHotkeys(timerHotkeys) {
+  const container = document.getElementById('timer-hotkeys-container');
+  if (!currentTimers || currentTimers.length === 0) {
+    container.innerHTML = '<div class="setting-description" style="padding: 12px; color: #666;">Create timers to assign hotkeys</div>';
+    return;
+  }
+
+  container.innerHTML = currentTimers.map(timer => {
+    const hotkey = timerHotkeys[timer.name] || '';
+    return `
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">${escapeHtml(timer.displayName || timer.name)}</div>
+          <div class="setting-description">Start/pause this timer</div>
+        </div>
+        <div class="hotkey-input-container">
+          <input type="text" class="hotkey-input timer-hotkey-input" data-timer="${timer.name}" readonly placeholder="Click to set" value="${escapeHtml(hotkey)}">
+          <button class="hotkey-clear timer-hotkey-clear" data-timer="${timer.name}" title="Clear hotkey">&times;</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Add event listeners to timer hotkey inputs
+  container.querySelectorAll('.timer-hotkey-input').forEach(input => {
+    setupHotkeyInput(input, async (hotkey) => {
+      const timerName = input.dataset.timer;
+      const settings = await window.timerAPI.getSettings();
+      const timers = { ...(settings.hotkeys?.timers ?? {}), [timerName]: hotkey };
+      await window.timerAPI.updateSettings({ hotkeys: { ...settings.hotkeys, timers } });
+    });
+  });
+
+  container.querySelectorAll('.timer-hotkey-clear').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const timerName = btn.dataset.timer;
+      const input = container.querySelector(`.timer-hotkey-input[data-timer="${timerName}"]`);
+      if (input) input.value = '';
+      const settings = await window.timerAPI.getSettings();
+      const timers = { ...(settings.hotkeys?.timers ?? {}) };
+      delete timers[timerName];
+      await window.timerAPI.updateSettings({ hotkeys: { ...settings.hotkeys, timers } });
+    });
+  });
+}
+
+// Convert key event to Electron accelerator format
+function keyEventToAccelerator(e) {
+  const parts = [];
+
+  if (e.metaKey) parts.push('CmdOrCtrl');
+  else if (e.ctrlKey) parts.push('CmdOrCtrl');
+  if (e.altKey) parts.push('Alt');
+  if (e.shiftKey) parts.push('Shift');
+
+  // Get the key
+  let key = e.key;
+
+  // Skip if only modifier keys
+  if (['Control', 'Alt', 'Shift', 'Meta'].includes(key)) {
+    return null;
+  }
+
+  // Normalize key names
+  if (key === ' ') key = 'Space';
+  else if (key === 'ArrowUp') key = 'Up';
+  else if (key === 'ArrowDown') key = 'Down';
+  else if (key === 'ArrowLeft') key = 'Left';
+  else if (key === 'ArrowRight') key = 'Right';
+  else if (key.length === 1) key = key.toUpperCase();
+
+  parts.push(key);
+
+  // Must have at least one modifier
+  if (parts.length < 2) {
+    return null;
+  }
+
+  return parts.join('+');
+}
+
+// Setup hotkey recording for an input
+function setupHotkeyInput(input, onSave) {
+  input.addEventListener('focus', () => {
+    input.classList.add('recording');
+    input.value = 'Press keys...';
+  });
+
+  input.addEventListener('blur', () => {
+    input.classList.remove('recording');
+    // Restore previous value if not set
+    if (input.value === 'Press keys...') {
+      input.value = input.dataset.previousValue || '';
+    }
+  });
+
+  input.addEventListener('keydown', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (e.key === 'Escape') {
+      input.value = input.dataset.previousValue || '';
+      input.blur();
+      return;
+    }
+
+    const accelerator = keyEventToAccelerator(e);
+    if (accelerator) {
+      input.value = accelerator;
+      input.dataset.previousValue = accelerator;
+      input.classList.remove('recording');
+      input.blur();
+      await onSave(accelerator);
+    }
+  });
+
+  // Store initial value
+  input.dataset.previousValue = input.value;
+}
+
+// Setup pause-all hotkey input
+const pauseAllHotkeyInput = document.getElementById('pause-all-hotkey');
+setupHotkeyInput(pauseAllHotkeyInput, async (hotkey) => {
+  const settings = await window.timerAPI.getSettings();
+  await window.timerAPI.updateSettings({
+    hotkeys: { ...settings.hotkeys, pauseAll: hotkey }
+  });
+});
+
+document.getElementById('pause-all-clear').addEventListener('click', async () => {
+  pauseAllHotkeyInput.value = '';
+  pauseAllHotkeyInput.dataset.previousValue = '';
+  const settings = await window.timerAPI.getSettings();
+  await window.timerAPI.updateSettings({
+    hotkeys: { ...settings.hotkeys, pauseAll: '' }
+  });
+});
 
 // Settings change handlers
 document.getElementById('pause-others').addEventListener('change', async (e) => {
@@ -286,6 +467,29 @@ document.getElementById('day-start').addEventListener('change', async (e) => {
     await window.timerAPI.updateSettings({ dayStartHour: hour, dayStartMinute: minute });
   } catch (err) {
     console.error('Failed to update setting:', err);
+  }
+});
+
+// Event log path handlers
+document.getElementById('change-path-btn').addEventListener('click', async () => {
+  try {
+    const result = await window.timerAPI.setEventsPath();
+    if (result.success) {
+      document.getElementById('events-path').textContent = result.path;
+    }
+  } catch (err) {
+    console.error('Failed to change events path:', err);
+  }
+});
+
+document.getElementById('reset-path-btn').addEventListener('click', async () => {
+  try {
+    const result = await window.timerAPI.resetEventsPath();
+    if (result.success) {
+      document.getElementById('events-path').textContent = result.path;
+    }
+  } catch (err) {
+    console.error('Failed to reset events path:', err);
   }
 });
 
@@ -320,6 +524,11 @@ document.getElementById('import-btn').addEventListener('click', async () => {
   } catch (err) {
     console.error('Import failed:', err);
   }
+});
+
+// Exit button handler
+document.getElementById('exit-btn').addEventListener('click', async () => {
+  await window.timerAPI.quitApp();
 });
 
 // Listen for updates from main process

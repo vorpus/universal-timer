@@ -1,7 +1,5 @@
 # Ralph Fix Plan
 
-## High Priority
-
 ### Phase 1: Project Foundation
 
 - [x] Initialize Electron project with package.json and npm scripts
@@ -25,8 +23,6 @@
 - [x] Handle day boundary splitting with configurable day start time
 - [x] Track currently running timer(s) in memory
 - [x] Implement "pause others on start" logic
-
-## Medium Priority
 
 ### Phase 4: UI - Timers Tab
 
@@ -60,11 +56,13 @@
 
 ### Phase 6: UI - Settings Tab
 
-- [ ] Build hotkey input components for pause all and per-timer shortcuts
+- [x] Build hotkey input components for pause all and per-timer shortcuts
 - [x] Implement preference toggles (pause others, play sounds, day start time)
-- [ ] Add event log location display with file picker
+- [x] Add event log location display with file picker
 - [x] Implement import functionality with confirmation dialog
 - [x] Implement export functionality (bundled settings + events)
+- [x] Settings menu should have an 'exit' button to quit the application.
+- [x] User should not be able to 'highlight' tabs (a 'selected' outline appears on tabs)
 
 ### Phase 7: Global Hotkeys
 
@@ -72,8 +70,6 @@
 - [x] Register per-timer hotkeys from settings
 - [x] Re-register hotkeys when settings change
 - [x] Handle hotkey conflicts gracefully
-
-## Low Priority
 
 ### Phase 8: Polish & UX
 
@@ -83,11 +79,17 @@
 - [x] Implement optional sound effects on timer start/pause
 - [x] Add placeholder .wav files for sounds
 
+### Phase 8.5: File organization
+
+- [ ] HTML, CSS, JS - figure out what makes sense to refactor to be reusable
+- [ ] Separate into files with fewer responsibilities for better organization
+- [ ] Put related files into folders for better organization
+
 ### Phase 9: Edge Cases & Robustness
 
 - [x] Handle partial/corrupt event log lines (discard incomplete JSON)
 - [x] Validate settings on load with defaults for missing fields
-- [ ] Handle file system errors gracefully
+- [x] Handle file system errors gracefully (toast notifications for errors)
 - [ ] Test behavior across midnight with various day start times
 - [ ] Verify import/export round-trip integrity
 
@@ -103,10 +105,12 @@
 - [x] Phase 7: Global Hotkeys (all items)
 - [x] Phase 8: Polish & UX (all items)
 - [x] Import/Export functionality
+- [x] Phase 6: UI - Settings Tab (all items)
 
-## V1 Complete - All Success Criteria Met
+## Completed
 
 The following Success Criteria are satisfied:
+
 1. ✅ App launches as tray-only application (no dock icon)
 2. ✅ Timers can be started/paused via UI and global hotkeys
 3. ✅ Timer state persists across app restarts via event log
@@ -117,12 +121,11 @@ The following Success Criteria are satisfied:
 8. ✅ Import/export functionality works correctly
 9. ✅ Weekly trend calculations are accurate
 
-## Optional Enhancements (Post-V1)
+## Next Steps
 
-The following items are optional enhancements, not required for V1:
 - Phase 5.5: TypeScript refactor (code quality improvement)
-- Phase 6: Hotkey input UI, event log location picker (UI enhancements)
-- Phase 9: Additional edge case testing
+- Phase 8.5: File organization
+- Phase 9: Additional edge case testing (file system errors, midnight behavior, import/export integrity)
 
 ## Notes
 

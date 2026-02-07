@@ -20,6 +20,12 @@ contextBridge.exposeInMainWorld('timerAPI', {
   // Data export/import
   exportData: () => ipcRenderer.invoke('data:export'),
   importData: () => ipcRenderer.invoke('data:import'),
+  getEventsPath: () => ipcRenderer.invoke('data:getEventsPath'),
+  setEventsPath: () => ipcRenderer.invoke('data:setEventsPath'),
+  resetEventsPath: () => ipcRenderer.invoke('data:resetEventsPath'),
+
+  // App control
+  quitApp: () => ipcRenderer.invoke('app:quit'),
 
   // Event listeners for updates from main process
   onTimerUpdate: (callback) => {
@@ -28,6 +34,9 @@ contextBridge.exposeInMainWorld('timerAPI', {
   onSettingsUpdate: (callback) => {
     ipcRenderer.on('settings:updated', (event, data) => callback(data));
   },
+  onError: (callback) => {
+    ipcRenderer.on('app:error', (event, data) => callback(data));
+  },
 
   // Remove listeners
   removeTimerListener: () => {
@@ -35,5 +44,8 @@ contextBridge.exposeInMainWorld('timerAPI', {
   },
   removeSettingsListener: () => {
     ipcRenderer.removeAllListeners('settings:updated');
+  },
+  removeErrorListener: () => {
+    ipcRenderer.removeAllListeners('app:error');
   }
 });
