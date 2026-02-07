@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, nativeImage, ipcMain } = require('electron');
+const { app, BrowserWindow, Tray, nativeImage, ipcMain, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -110,10 +110,54 @@ if (process.platform === 'darwin') {
   app.dock.hide();
 }
 
+// ========================================
+// Global Hotkeys
+// ========================================
+
+function registerGlobalHotkeys() {
+  // Unregister all existing shortcuts first
+  globalShortcut.unregisterAll();
+
+  // Register pause all hotkey
+  const pauseAllHotkey = settings.hotkeys?.pauseAll || 'CmdOrCtrl+Shift+P';
+  try {
+    const registered = globalShortcut.register(pauseAllHotkey, () => {
+      pauseAll();
+    });
+    if (!registered) {
+      console.error(`Failed to register hotkey: ${pauseAllHotkey}`);
+    }
+  } catch (err) {
+    console.error(`Error registering hotkey ${pauseAllHotkey}:`, err);
+  }
+
+  // Register per-timer hotkeys
+  const timerHotkeys = settings.hotkeys?.timers || {};
+  for (const [timerName, hotkey] of Object.entries(timerHotkeys)) {
+    try {
+      const registered = globalShortcut.register(hotkey, () => {
+        // Toggle timer: if running, pause it; if paused, start it
+        const state = computeTimerState();
+        if (state.runningTimer === timerName) {
+          pauseTimer(timerName);
+        } else {
+          startTimer(timerName);
+        }
+      });
+      if (!registered) {
+        console.error(`Failed to register hotkey for timer "${timerName}": ${hotkey}`);
+      }
+    } catch (err) {
+      console.error(`Error registering hotkey for timer "${timerName}":`, err);
+    }
+  }
+}
+
 // App lifecycle
 app.whenReady().then(() => {
   createTray();
   createWindow();
+  registerGlobalHotkeys();
 });
 
 app.on('window-all-closed', () => {
@@ -125,6 +169,11 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   app.isQuitting = true;
+});
+
+app.on('will-quit', () => {
+  // Unregister all shortcuts when quitting
+  globalShortcut.unregisterAll();
 });
 
 app.on('activate', () => {
@@ -663,8 +712,15 @@ ipcMain.handle('settings:get', () => {
 });
 
 ipcMain.handle('settings:update', (event, updates) => {
+  const oldHotkeys = JSON.stringify(settings.hotkeys);
   settings = { ...settings, ...updates };
   saveSettings();
+
+  // Re-register hotkeys if they changed
+  if (JSON.stringify(settings.hotkeys) !== oldHotkeys) {
+    registerGlobalHotkeys();
+  }
+
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('settings:updated', settings);
   }

@@ -68,10 +68,10 @@
 
 ### Phase 7: Global Hotkeys
 
-- [ ] Register global hotkey for pause all (default: CmdOrCtrl+Shift+P)
-- [ ] Register per-timer hotkeys from settings
-- [ ] Re-register hotkeys when settings change
-- [ ] Handle hotkey conflicts gracefully
+- [x] Register global hotkey for pause all (default: CmdOrCtrl+Shift+P)
+- [x] Register per-timer hotkeys from settings
+- [x] Re-register hotkeys when settings change
+- [x] Handle hotkey conflicts gracefully
 
 ## Low Priority
 
