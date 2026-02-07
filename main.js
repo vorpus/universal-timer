@@ -10,19 +10,35 @@ let mainWindow = null;
 const WINDOW_WIDTH = 360;
 const WINDOW_HEIGHT = 520;
 
-function createTray() {
-  // Create a simple tray icon (16x16)
-  // This is a minimal clock icon as a base64 PNG
-  const iconBase64 = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAAA0klEQVQ4y62TsQ3CMBAE30FKRBfpgA5CBxQAHVACJUABdJAOKIAOUgJ0QAl0EDoIA4GQ4H+xZEt2gCefPL67f7vNVHwxFUBEGOEcEdqKP/0OHOELOMDxH4ABjoI7cPwLYIhz4ARMIILF9oDRN4AGCOAErF0ACVA9wAI0wAnYu4C5CyiNXkSEA4TuAtLDl0Zu4gIq4BhoJA4QQg1EcBwBM9cL1q4htww0wBLYehdYqBesvZnKh5TeRSowwLl6hQvwpZU7W6CnB/AALHpvqd+B/78vgXCTTJW9gAIAAAAASUVORK5CYII=';
+// Tray icons (16x16 PNG base64)
+// Idle icon: simple clock outline
+const TRAY_ICON_IDLE = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAAA0klEQVQ4y62TsQ3CMBAE30FKRBfpgA5CBxQAHVACJUABdJAOKIAOUgJ0QAl0EDoIA4GQ4H+xZEt2gCefPL67f7vNVHwxFUBEGOEcEdqKP/0OHOELOMDxH4ABjoI7cPwLYIhz4ARMIILF9oDRN4AGCOAErF0ACVA9wAI0wAnYu4C5CyiNXkSEA4TuAtLDl0Zu4gIq4BhoJA4QQg1EcBwBM9cL1q4htww0wBLYehdYqBesvZnKh5TeRSowwLl6hQvwpZU7W6CnB/AALHpvqd+B/78vgXCTTJW9gAIAAAAASUVORK5CYII=';
 
+// Active icon: clock with green dot indicator (recording)
+const TRAY_ICON_ACTIVE = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABCElEQVQ4y6WTsU7DMBCG/4uTlKYdkBiYWHgANt6AhQdg6MbCxsLGwsLExsLGxMLCxMTExMbEwkBVVaVpYufsA1dqSUvLgCXL8t397vP5Lgh+SERAzPgDAFaSBB8Pj2qfzTrR6zfY3S+U29kRO3tFF+EYOANfD49K5rSOnz6gmO9iOL1Er9+AJy8+7LJqgee7Z9WEwSsQjWV4uEYy62AwvfQRJAx7fLqBFD/VmTjGYHoJRGMAwP7xFZK5WXkbEIddhGNfAR9hwC2cR2MEuzfI5ru+ipwIh10/QZAEKOY7DQSd+3PMd9twHtCdXwEJQ6ub7+H08gH7x1dYKP/P32DziC9gv9P7p98DkKZmEg+YKRAAAAAASUVORK5CYII=';
+
+function createTrayIcon(isActive) {
+  const iconBase64 = isActive ? TRAY_ICON_ACTIVE : TRAY_ICON_IDLE;
   let icon = nativeImage.createFromDataURL(`data:image/png;base64,${iconBase64}`);
 
   // For macOS, mark as template image for proper dark/light mode support
-  if (process.platform === 'darwin') {
+  // But only for idle icon - active icon should show color
+  if (process.platform === 'darwin' && !isActive) {
     icon.setTemplateImage(true);
   }
 
-  tray = new Tray(icon);
+  return icon;
+}
+
+function updateTrayIcon(isActive) {
+  if (tray) {
+    tray.setImage(createTrayIcon(isActive));
+    tray.setToolTip(isActive ? 'Time Tracker (Recording)' : 'Time Tracker');
+  }
+}
+
+function createTray() {
+  tray = new Tray(createTrayIcon(false));
   tray.setToolTip('Time Tracker');
 
   // Toggle window on tray click
@@ -158,6 +174,10 @@ app.whenReady().then(() => {
   createTray();
   createWindow();
   registerGlobalHotkeys();
+
+  // Check if there's a running timer on startup (crash recovery) and update tray icon
+  const initialState = computeTimerState();
+  updateTrayIcon(initialState.runningTimer !== null);
 });
 
 app.on('window-all-closed', () => {
@@ -666,8 +686,12 @@ function pauseAll() {
 }
 
 function notifyRenderer() {
+  const state = computeTimerState();
+
+  // Update tray icon based on running timer
+  updateTrayIcon(state.runningTimer !== null);
+
   if (mainWindow && !mainWindow.isDestroyed()) {
-    const state = computeTimerState();
     mainWindow.webContents.send('timer:updated', state);
   }
 }

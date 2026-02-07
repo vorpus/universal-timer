@@ -78,8 +78,8 @@
 ### Phase 8: Polish & UX
 
 - [x] Create placeholder tray icons (idle + per-timer variants)
-- [ ] Implement tray icon switching based on running timer
-- [ ] Add background indicator to tray when timer is active
+- [x] Implement tray icon switching based on running timer
+- [x] Add background indicator to tray when timer is active
 - [ ] Implement optional sound effects on timer start/pause
 - [ ] Add placeholder .wav files for sounds
 
