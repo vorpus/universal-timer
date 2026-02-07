@@ -2,6 +2,11 @@
 const tabs = document.querySelectorAll('.tab');
 const tabContents = document.querySelectorAll('.tab-content');
 
+// Live update state
+let currentTimers = [];
+let currentRunningTimer = null;
+let liveUpdateInterval = null;
+
 tabs.forEach(tab => {
   tab.addEventListener('click', () => {
     const targetTab = tab.dataset.tab;
@@ -50,6 +55,10 @@ function formatTime(ms) {
 
 // Render timer list
 function renderTimers(timers, runningTimer) {
+  // Store current state for live updates
+  currentTimers = timers || [];
+  currentRunningTimer = runningTimer;
+
   if (!timers || timers.length === 0) {
     timerList.innerHTML = `
       <div class="empty-state">
@@ -57,6 +66,7 @@ function renderTimers(timers, runningTimer) {
         <p>Type a name above and press Enter to start</p>
       </div>
     `;
+    stopLiveUpdate();
     return;
   }
 
@@ -66,7 +76,7 @@ function renderTimers(timers, runningTimer) {
       <div class="timer-item ${isRunning ? 'running' : ''}" data-timer="${timer.name}">
         <div class="timer-info">
           <div class="timer-name">${escapeHtml(timer.displayName || timer.name)}</div>
-          <div class="timer-time">${formatTime(timer.elapsedToday)}</div>
+          <div class="timer-time" data-base-elapsed="${timer.elapsedToday}">${formatTime(timer.elapsedToday)}</div>
         </div>
         <button class="timer-btn ${isRunning ? 'pause' : 'play'}" data-action="${isRunning ? 'pause' : 'play'}">
           ${isRunning ? '⏸' : '▶'}
@@ -93,6 +103,13 @@ function renderTimers(timers, runningTimer) {
       }
     });
   });
+
+  // Start or stop live update based on whether a timer is running
+  if (runningTimer) {
+    startLiveUpdate();
+  } else {
+    stopLiveUpdate();
+  }
 }
 
 // Escape HTML to prevent XSS
@@ -102,6 +119,58 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// Live update functions for running timer display
+let liveUpdateStartTime = null;
+
+function startLiveUpdate() {
+  if (liveUpdateInterval) {
+    return; // Already running
+  }
+
+  liveUpdateStartTime = Date.now();
+
+  liveUpdateInterval = setInterval(() => {
+    updateRunningTimerDisplay();
+  }, 1000);
+}
+
+function stopLiveUpdate() {
+  if (liveUpdateInterval) {
+    clearInterval(liveUpdateInterval);
+    liveUpdateInterval = null;
+    liveUpdateStartTime = null;
+  }
+}
+
+function updateRunningTimerDisplay() {
+  if (!currentRunningTimer || !liveUpdateStartTime) {
+    return;
+  }
+
+  const elapsed = Date.now() - liveUpdateStartTime;
+
+  // Find the running timer element and update its display
+  const runningTimerItem = timerList.querySelector(`.timer-item[data-timer="${currentRunningTimer}"]`);
+  if (runningTimerItem) {
+    const timeEl = runningTimerItem.querySelector('.timer-time');
+    if (timeEl) {
+      const baseElapsed = parseInt(timeEl.dataset.baseElapsed, 10) || 0;
+      timeEl.textContent = formatTime(baseElapsed + elapsed);
+    }
+  }
+
+  // Also update the total time in metrics
+  updateTotalTimeDisplay(elapsed);
+}
+
+function updateTotalTimeDisplay(additionalElapsed) {
+  const totalTimeEl = document.getElementById('total-time');
+  if (totalTimeEl && totalTimeEl.dataset.baseTotal !== undefined) {
+    const baseTotal = parseInt(totalTimeEl.dataset.baseTotal, 10) || 0;
+    totalTimeEl.textContent = formatTime(baseTotal + additionalElapsed);
+  }
+}
+
 // Update metrics display
 function updateMetrics(data) {
   const totalTimeEl = document.getElementById('total-time');
@@ -109,6 +178,7 @@ function updateMetrics(data) {
 
   if (data.totalToday !== undefined) {
     totalTimeEl.textContent = formatTime(data.totalToday);
+    totalTimeEl.dataset.baseTotal = data.totalToday;
   }
 
   if (data.weeklyTrend !== undefined) {
@@ -173,6 +243,9 @@ document.getElementById('day-start').addEventListener('change', async (e) => {
 
 // Listen for updates from main process
 window.timerAPI.onTimerUpdate((data) => {
+  // Stop current live update and reset timing
+  stopLiveUpdate();
+
   renderTimers(data.timers, data.runningTimer);
   updateMetrics(data);
 });
@@ -182,9 +255,9 @@ async function init() {
   await initSettings();
 
   try {
-    const timers = await window.timerAPI.getTimers();
-    const runningTimer = await window.timerAPI.getRunningTimer();
-    renderTimers(timers, runningTimer);
+    const state = await window.timerAPI.getState();
+    renderTimers(state.timers, state.runningTimer);
+    updateMetrics(state);
   } catch (err) {
     console.error('Failed to load timers:', err);
   }

@@ -439,6 +439,10 @@ ipcMain.handle('timer:getRunning', () => {
   return computeTimerState().runningTimer;
 });
 
+ipcMain.handle('timer:getState', () => {
+  return computeTimerState();
+});
+
 ipcMain.handle('settings:get', () => {
   return settings;
 });

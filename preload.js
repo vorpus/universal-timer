@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('timerAPI', {
   // Get timer state
   getTimers: () => ipcRenderer.invoke('timer:getAll'),
   getRunningTimer: () => ipcRenderer.invoke('timer:getRunning'),
+  getState: () => ipcRenderer.invoke('timer:getState'),
 
   // Settings
   getSettings: () => ipcRenderer.invoke('settings:get'),
