@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Time Tracker</title>
+</head>
+<body>
+  <div class="context-menu" id="context-menu" style="display: none;">
+    <div class="context-menu-item" id="context-menu-rename">Rename</div>
+    <div class="context-menu-item context-menu-danger" id="context-menu-delete">Delete</div>
+  </div>
+  <div class="toast-container" id="toast-container"></div>
+  <div class="container">
+    <!-- Tab navigation -->
+    <div class="tabs">
+      <button class="tab active" data-tab="timers">Timers</button>
+      <button class="tab" data-tab="metrics">Metrics</button>
+      <button class="tab" data-tab="settings">Settings</button>
+    </div>
+
+    <!-- Timers tab -->
+    <div class="tab-content active" id="timers-tab">
+      <div class="timer-list" id="timer-list">
+        <div class="empty-state">
+          <p>No timers yet</p>
+          <p>Click "Add Timer" below to start</p>
+        </div>
+      </div>
+      <div class="add-timer-section">
+        <button class="add-timer-btn" id="add-timer-btn">+ Add Timer</button>
+        <div class="add-timer-input-wrapper" id="add-timer-wrapper">
+          <div class="timer-input-container">
+            <input type="text" class="timer-input" id="timer-input" placeholder="New timer name...">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Metrics tab -->
+    <div class="tab-content" id="metrics-tab">
+      <div class="metrics-content">
+        <div class="metric-card">
+          <div class="metric-label">Today's Total</div>
+          <div class="metric-value" id="total-time">0:00:00</div>
+          <div class="metric-trend" id="weekly-trend"></div>
+        </div>
+        <div id="per-timer-stats"></div>
+        <div class="timeline-container">
+          <div class="timeline-label">Today's Timeline</div>
+          <div class="timeline-bar" id="timeline-bar"></div>
+          <div class="timeline-times" id="timeline-times"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings tab -->
+    <div class="tab-content" id="settings-tab">
+      <div class="settings-content">
+        <div class="settings-section">
+          <div class="settings-section-title">Behavior</div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Pause others on start</div>
+              <div class="setting-description">Only one timer runs at a time</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="pause-others" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Play sounds</div>
+              <div class="setting-description">Audio feedback on timer events</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="play-sounds">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Show task number in tray</div>
+              <div class="setting-description">Display 1-9 in menu bar for active timer</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="use-task-number-tray" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">Day Boundary</div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Day starts at</div>
+              <div class="setting-description">When to reset daily metrics</div>
+            </div>
+            <input type="time" id="day-start" value="00:00" style="background: #333; border: none; color: #e0e0e0; padding: 6px 8px; border-radius: 4px;">
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">Global Hotkeys</div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Pause all timers</div>
+              <div class="setting-description">Stop all running timers</div>
+            </div>
+            <div class="hotkey-input-container">
+              <input type="text" class="hotkey-input" id="pause-all-hotkey" readonly placeholder="Click to set">
+              <button class="hotkey-clear" id="pause-all-clear" title="Clear hotkey">&times;</button>
+            </div>
+          </div>
+          <div id="timer-hotkeys-container"></div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">Data</div>
+          <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+            <div style="width: 100%; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <div class="setting-label">Event log location</div>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button class="action-btn" id="change-path-btn" style="font-size: 12px; padding: 6px 12px;">Change</button>
+                <button class="action-btn" id="reset-path-btn" style="font-size: 12px; padding: 6px 12px; background: #555;">Reset</button>
+              </div>
+            </div>
+            <div class="setting-description" id="events-path" style="word-break: break-all; font-family: monospace; font-size: 11px;"></div>
+          </div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Export data</div>
+              <div class="setting-description">Save settings and timer history</div>
+            </div>
+            <button class="action-btn" id="export-btn">Export</button>
+          </div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Import data</div>
+              <div class="setting-description">Restore from backup file</div>
+            </div>
+            <button class="action-btn" id="import-btn">Import</button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">Application</div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Quit Time Tracker</div>
+              <div class="setting-description">Exit the application</div>
+            </div>
+            <button class="action-btn danger" id="exit-btn">Exit</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./src/renderer.ts"></script>
+</body>
+</html>

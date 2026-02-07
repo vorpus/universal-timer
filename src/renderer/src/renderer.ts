@@ -1,6 +1,10 @@
+import './styles.css'
+
+import type { TimerInfo, TimerState, Settings, TimelineData, AppError } from '../../shared/types'
+
 // Toast notifications
-function showToast(message, duration = 5000) {
-  const container = document.getElementById('toast-container');
+function showToast(message: string, duration: number = 5000): void {
+  const container = document.getElementById('toast-container')!;
   const toast = document.createElement('div');
   toast.className = 'toast';
   toast.textContent = message;
@@ -13,18 +17,18 @@ function showToast(message, duration = 5000) {
 }
 
 // Listen for errors from main process
-window.timerAPI.onError((data) => {
+window.timerAPI.onError((data: AppError) => {
   showToast(data.message);
 });
 
 // Tab switching
-const tabs = document.querySelectorAll('.tab');
-const tabContents = document.querySelectorAll('.tab-content');
+const tabs = document.querySelectorAll<HTMLElement>('.tab');
+const tabContents = document.querySelectorAll<HTMLElement>('.tab-content');
 
 // Live update state
-let currentTimers = [];
-let currentRunningTimers = [];
-let liveUpdateInterval = null;
+let currentTimers: TimerInfo[] = [];
+let currentRunningTimers: string[] = [];
+let liveUpdateInterval: ReturnType<typeof setInterval> | null = null;
 
 tabs.forEach(tab => {
   tab.addEventListener('click', () => {
@@ -45,19 +49,19 @@ tabs.forEach(tab => {
 });
 
 // Timer input handling
-const timerInput = document.getElementById('timer-input');
-const timerList = document.getElementById('timer-list');
-const addTimerBtn = document.getElementById('add-timer-btn');
-const addTimerWrapper = document.getElementById('add-timer-wrapper');
+const timerInput = document.getElementById('timer-input') as HTMLInputElement;
+const timerList = document.getElementById('timer-list') as HTMLDivElement;
+const addTimerBtn = document.getElementById('add-timer-btn') as HTMLButtonElement;
+const addTimerWrapper = document.getElementById('add-timer-wrapper') as HTMLElement;
 
 // Expand/collapse add timer input
-function expandAddTimer() {
+function expandAddTimer(): void {
   addTimerWrapper.classList.add('expanded');
   addTimerBtn.style.display = 'none';
   timerInput.focus();
 }
 
-function collapseAddTimer() {
+function collapseAddTimer(): void {
   addTimerWrapper.classList.remove('expanded');
   addTimerBtn.style.display = 'flex';
   timerInput.value = '';
@@ -65,7 +69,7 @@ function collapseAddTimer() {
 
 addTimerBtn.addEventListener('click', expandAddTimer);
 
-timerInput.addEventListener('keydown', async (e) => {
+timerInput.addEventListener('keydown', async (e: KeyboardEvent) => {
   if (e.key === 'Enter') {
     const timerName = timerInput.value.trim();
     if (timerName) {
@@ -83,10 +87,10 @@ timerInput.addEventListener('keydown', async (e) => {
 });
 
 // Close add timer on click outside
-document.addEventListener('click', (e) => {
+document.addEventListener('click', (e: MouseEvent) => {
   if (addTimerWrapper.classList.contains('expanded')) {
     const addTimerSection = document.querySelector('.add-timer-section');
-    const isClickInsideSection = addTimerSection && addTimerSection.contains(e.target);
+    const isClickInsideSection = addTimerSection && addTimerSection.contains(e.target as Node);
     if (!isClickInsideSection) {
       collapseAddTimer();
     }
@@ -94,7 +98,7 @@ document.addEventListener('click', (e) => {
 });
 
 // Format time as H:MM:SS
-function formatTime(ms) {
+function formatTime(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -104,7 +108,7 @@ function formatTime(ms) {
 }
 
 // Format duration as compact string like "2h 30m" or "45m"
-function formatDuration(ms) {
+function formatDuration(ms: number): string {
   const totalMinutes = Math.floor(ms / 60000);
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
@@ -119,7 +123,7 @@ function formatDuration(ms) {
 }
 
 // Format timestamp as compact hour label like "8a", "12p", "5p"
-function formatCompactHour(timestamp) {
+function formatCompactHour(timestamp: number): string {
   const date = new Date(timestamp);
   let hours = date.getHours();
   const minutes = date.getMinutes();
@@ -134,10 +138,10 @@ function formatCompactHour(timestamp) {
 }
 
 // Context menu state
-let contextMenuTimer = null;
+let contextMenuTimer: string | null = null;
 
-function showContextMenu(x, y, timerName) {
-  const menu = document.getElementById('context-menu');
+function showContextMenu(x: number, y: number, timerName: string): void {
+  const menu = document.getElementById('context-menu') as HTMLElement;
   contextMenuTimer = timerName;
 
   menu.style.display = 'block';
@@ -155,8 +159,8 @@ function showContextMenu(x, y, timerName) {
   }
 }
 
-function hideContextMenu() {
-  const menu = document.getElementById('context-menu');
+function hideContextMenu(): void {
+  const menu = document.getElementById('context-menu') as HTMLElement;
   menu.style.display = 'none';
   contextMenuTimer = null;
 }
@@ -167,14 +171,14 @@ document.addEventListener('click', () => {
 });
 
 // Context menu actions
-document.getElementById('context-menu-rename').addEventListener('click', () => {
+document.getElementById('context-menu-rename')!.addEventListener('click', () => {
   if (!contextMenuTimer) return;
   const timerName = contextMenuTimer;
   hideContextMenu();
   startInlineRename(timerName);
 });
 
-document.getElementById('context-menu-delete').addEventListener('click', async () => {
+document.getElementById('context-menu-delete')!.addEventListener('click', async () => {
   if (!contextMenuTimer) return;
   const timerName = contextMenuTimer;
   hideContextMenu();
@@ -185,13 +189,13 @@ document.getElementById('context-menu-delete').addEventListener('click', async (
   }
 });
 
-function startInlineRename(timerName) {
-  const timerItem = timerList.querySelector(`.timer-item[data-timer="${timerName}"]`);
+function startInlineRename(timerName: string): void {
+  const timerItem = timerList.querySelector(`.timer-item[data-timer="${timerName}"]`) as HTMLElement | null;
   if (!timerItem) return;
 
-  const nameEl = timerItem.querySelector('.timer-name');
-  const orderBadge = nameEl.querySelector('.timer-order');
-  const currentText = nameEl.textContent.replace(orderBadge?.textContent || '', '').trim();
+  const nameEl = timerItem.querySelector('.timer-name') as HTMLElement;
+  const orderBadge = nameEl.querySelector('.timer-order') as HTMLElement | null;
+  const currentText = nameEl.textContent!.replace(orderBadge?.textContent || '', '').trim();
 
   // Override overflow so input is visible
   nameEl.classList.add('renaming');
@@ -207,7 +211,7 @@ function startInlineRename(timerName) {
   input.focus();
   input.select();
 
-  function restoreName() {
+  function restoreName(): void {
     nameEl.classList.remove('renaming');
     nameEl.textContent = '';
     if (orderBadge) nameEl.appendChild(orderBadge);
@@ -215,7 +219,7 @@ function startInlineRename(timerName) {
   }
 
   let committed = false;
-  async function commitRename() {
+  async function commitRename(): Promise<void> {
     if (committed) return;
     committed = true;
     const newName = input.value.trim();
@@ -231,7 +235,7 @@ function startInlineRename(timerName) {
     }
   }
 
-  input.addEventListener('keydown', (e) => {
+  input.addEventListener('keydown', (e: KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       input.blur();
@@ -247,10 +251,10 @@ function startInlineRename(timerName) {
 }
 
 // Drag and drop state
-let draggedElement = null;
+let draggedElement: HTMLElement | null = null;
 
 // Render timer list
-function renderTimers(timers) {
+function renderTimers(timers: TimerInfo[]): void {
   // Store current state for live updates
   currentTimers = timers || [];
   currentRunningTimers = currentTimers.filter(t => t.isRunning).map(t => t.name);
@@ -271,23 +275,23 @@ function renderTimers(timers) {
     const orderNumber = index + 1;
     return `
       <div class="timer-item ${isRunning ? 'running' : ''}" data-timer="${timer.name}" draggable="true">
-        <span class="drag-handle">⋮⋮</span>
+        <span class="drag-handle">${escapeHtml('\u22EE\u22EE')}</span>
         <div class="timer-info">
           <div class="timer-name"><span class="timer-order">${orderNumber}</span>${escapeHtml(timer.displayName || timer.name)}</div>
           <div class="timer-time" data-base-elapsed="${timer.elapsedToday}">${formatTime(timer.elapsedToday)}</div>
         </div>
         <button class="timer-btn ${isRunning ? 'pause' : 'play'}" data-action="${isRunning ? 'pause' : 'play'}">
-          ${isRunning ? '⏸' : '▶'}
+          ${isRunning ? '\u23F8' : '\u25B6'}
         </button>
       </div>
     `;
   }).join('');
 
   // Add click handlers for play/pause buttons
-  timerList.querySelectorAll('.timer-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      const timerItem = e.target.closest('.timer-item');
-      const timerName = timerItem.dataset.timer;
+  timerList.querySelectorAll<HTMLButtonElement>('.timer-btn').forEach(btn => {
+    btn.addEventListener('click', async (e: MouseEvent) => {
+      const timerItem = (e.target as HTMLElement).closest('.timer-item') as HTMLElement;
+      const timerName = timerItem.dataset.timer!;
       const action = btn.dataset.action;
 
       try {
@@ -303,15 +307,15 @@ function renderTimers(timers) {
   });
 
   // Add drag and drop handlers + context menu
-  timerList.querySelectorAll('.timer-item').forEach(item => {
+  timerList.querySelectorAll<HTMLElement>('.timer-item').forEach(item => {
     item.addEventListener('dragstart', handleDragStart);
     item.addEventListener('dragend', handleDragEnd);
     item.addEventListener('dragover', handleDragOver);
     item.addEventListener('dragleave', handleDragLeave);
     item.addEventListener('drop', handleDrop);
-    item.addEventListener('contextmenu', (e) => {
+    item.addEventListener('contextmenu', (e: MouseEvent) => {
       e.preventDefault();
-      showContextMenu(e.clientX, e.clientY, item.dataset.timer);
+      showContextMenu(e.clientX, e.clientY, item.dataset.timer!);
     });
   });
 
@@ -327,60 +331,60 @@ function renderTimers(timers) {
 }
 
 // Drag and drop handlers
-function handleDragStart(e) {
-  draggedElement = e.target.closest('.timer-item');
+function handleDragStart(e: DragEvent): void {
+  draggedElement = (e.target as HTMLElement).closest('.timer-item') as HTMLElement;
   draggedElement.classList.add('dragging');
-  e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', draggedElement.dataset.timer);
+  e.dataTransfer!.effectAllowed = 'move';
+  e.dataTransfer!.setData('text/plain', draggedElement.dataset.timer!);
 }
 
-function handleDragEnd(e) {
+function handleDragEnd(_e: DragEvent): void {
   if (draggedElement) {
     draggedElement.classList.remove('dragging');
   }
-  timerList.querySelectorAll('.timer-item').forEach(item => {
+  timerList.querySelectorAll<HTMLElement>('.timer-item').forEach(item => {
     item.classList.remove('drag-over');
   });
   draggedElement = null;
 }
 
-function handleDragOver(e) {
+function handleDragOver(e: DragEvent): void {
   e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  const targetItem = e.target.closest('.timer-item');
+  e.dataTransfer!.dropEffect = 'move';
+  const targetItem = (e.target as HTMLElement).closest('.timer-item') as HTMLElement | null;
   if (targetItem && targetItem !== draggedElement) {
-    timerList.querySelectorAll('.timer-item').forEach(item => {
+    timerList.querySelectorAll<HTMLElement>('.timer-item').forEach(item => {
       item.classList.remove('drag-over');
     });
     targetItem.classList.add('drag-over');
   }
 }
 
-function handleDragLeave(e) {
-  const targetItem = e.target.closest('.timer-item');
+function handleDragLeave(e: DragEvent): void {
+  const targetItem = (e.target as HTMLElement).closest('.timer-item') as HTMLElement | null;
   if (targetItem) {
     targetItem.classList.remove('drag-over');
   }
 }
 
-async function handleDrop(e) {
+async function handleDrop(e: DragEvent): Promise<void> {
   e.preventDefault();
-  const targetItem = e.target.closest('.timer-item');
+  const targetItem = (e.target as HTMLElement).closest('.timer-item') as HTMLElement | null;
 
   if (targetItem && draggedElement && targetItem !== draggedElement) {
     // Reorder in DOM
-    const items = [...timerList.querySelectorAll('.timer-item')];
+    const items = [...timerList.querySelectorAll<HTMLElement>('.timer-item')];
     const draggedIndex = items.indexOf(draggedElement);
     const targetIndex = items.indexOf(targetItem);
 
     if (draggedIndex < targetIndex) {
-      targetItem.parentNode.insertBefore(draggedElement, targetItem.nextSibling);
+      targetItem.parentNode!.insertBefore(draggedElement, targetItem.nextSibling);
     } else {
-      targetItem.parentNode.insertBefore(draggedElement, targetItem);
+      targetItem.parentNode!.insertBefore(draggedElement, targetItem);
     }
 
     // Extract new order and persist
-    const newOrder = [...timerList.querySelectorAll('.timer-item')].map(item => item.dataset.timer);
+    const newOrder = [...timerList.querySelectorAll<HTMLElement>('.timer-item')].map(item => item.dataset.timer!);
     try {
       await window.timerAPI.updateTimerOrder(newOrder);
     } catch (err) {
@@ -388,13 +392,13 @@ async function handleDrop(e) {
     }
   }
 
-  timerList.querySelectorAll('.timer-item').forEach(item => {
+  timerList.querySelectorAll<HTMLElement>('.timer-item').forEach(item => {
     item.classList.remove('drag-over');
   });
 }
 
 // Update timer hotkeys section if it exists and timers have changed
-async function updateTimerHotkeysIfNeeded() {
+async function updateTimerHotkeysIfNeeded(): Promise<void> {
   const container = document.getElementById('timer-hotkeys-container');
   if (container) {
     try {
@@ -407,16 +411,16 @@ async function updateTimerHotkeysIfNeeded() {
 }
 
 // Escape HTML to prevent XSS
-function escapeHtml(text) {
+function escapeHtml(text: string): string {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
 }
 
 // Live update functions for running timer display
-let liveUpdateStartTime = null;
+let liveUpdateStartTime: number | null = null;
 
-function startLiveUpdate() {
+function startLiveUpdate(): void {
   if (liveUpdateInterval) {
     return; // Already running
   }
@@ -428,7 +432,7 @@ function startLiveUpdate() {
   }, 1000);
 }
 
-function stopLiveUpdate() {
+function stopLiveUpdate(): void {
   if (liveUpdateInterval) {
     clearInterval(liveUpdateInterval);
     liveUpdateInterval = null;
@@ -436,7 +440,7 @@ function stopLiveUpdate() {
   }
 }
 
-function updateRunningTimerDisplay() {
+function updateRunningTimerDisplay(): void {
   if (currentRunningTimers.length === 0 || !liveUpdateStartTime) {
     return;
   }
@@ -445,11 +449,11 @@ function updateRunningTimerDisplay() {
 
   // Update all running timer elements
   for (const timerName of currentRunningTimers) {
-    const timerItem = timerList.querySelector(`.timer-item[data-timer="${timerName}"]`);
+    const timerItem = timerList.querySelector(`.timer-item[data-timer="${timerName}"]`) as HTMLElement | null;
     if (timerItem) {
-      const timeEl = timerItem.querySelector('.timer-time');
+      const timeEl = timerItem.querySelector('.timer-time') as HTMLElement | null;
       if (timeEl) {
-        const baseElapsed = parseInt(timeEl.dataset.baseElapsed, 10) || 0;
+        const baseElapsed = parseInt(timeEl.dataset.baseElapsed!, 10) || 0;
         timeEl.textContent = formatTime(baseElapsed + elapsed);
       }
     }
@@ -459,9 +463,9 @@ function updateRunningTimerDisplay() {
   const perTimerStats = document.getElementById('per-timer-stats');
   if (perTimerStats) {
     for (const timerName of currentRunningTimers) {
-      const todayEl = perTimerStats.querySelector(`.per-timer-today[data-timer="${timerName}"]`);
+      const todayEl = perTimerStats.querySelector(`.per-timer-today[data-timer="${timerName}"]`) as HTMLElement | null;
       if (todayEl) {
-        const baseElapsed = parseInt(todayEl.dataset.baseElapsed, 10) || 0;
+        const baseElapsed = parseInt(todayEl.dataset.baseElapsed!, 10) || 0;
         todayEl.textContent = formatDuration(baseElapsed + elapsed);
       }
     }
@@ -471,8 +475,8 @@ function updateRunningTimerDisplay() {
   updateTotalTimeDisplay(elapsed);
 }
 
-function updateTotalTimeDisplay(additionalElapsed) {
-  const totalTimeEl = document.getElementById('total-time');
+function updateTotalTimeDisplay(additionalElapsed: number): void {
+  const totalTimeEl = document.getElementById('total-time') as HTMLElement | null;
   if (totalTimeEl && totalTimeEl.dataset.baseTotal !== undefined) {
     const baseTotal = parseInt(totalTimeEl.dataset.baseTotal, 10) || 0;
     // Each running timer contributes additionalElapsed to the total
@@ -481,13 +485,13 @@ function updateTotalTimeDisplay(additionalElapsed) {
 }
 
 // Update metrics display
-function updateMetrics(data) {
-  const totalTimeEl = document.getElementById('total-time');
-  const weeklyTrendEl = document.getElementById('weekly-trend');
+function updateMetrics(data: TimerState): void {
+  const totalTimeEl = document.getElementById('total-time') as HTMLElement;
+  const weeklyTrendEl = document.getElementById('weekly-trend') as HTMLElement;
 
   if (data.totalToday !== undefined) {
     totalTimeEl.textContent = formatTime(data.totalToday);
-    totalTimeEl.dataset.baseTotal = data.totalToday;
+    totalTimeEl.dataset.baseTotal = String(data.totalToday);
   }
 
   if (data.weeklyTrend !== undefined) {
@@ -505,16 +509,16 @@ function updateMetrics(data) {
   }
 
   // Render per-timer stats
-  const perTimerStats = document.getElementById('per-timer-stats');
+  const perTimerStats = document.getElementById('per-timer-stats') as HTMLElement;
   if (data.timers) {
-    const relevant = data.timers.filter(t => t.elapsedToday > 0 || t.weeklyTotal > 0);
+    const relevant = data.timers.filter(t => t.elapsedToday > 0 || (t.weeklyTotal && t.weeklyTotal > 0));
     if (relevant.length > 0) {
       perTimerStats.className = 'per-timer-stats';
       perTimerStats.innerHTML = relevant.map(timer => {
         let trendHtml = '';
-        if (timer.weeklyTrend > 0) {
+        if (timer.weeklyTrend && timer.weeklyTrend > 0) {
           trendHtml = `<span class="per-timer-trend up">+${timer.weeklyTrend}%</span>`;
-        } else if (timer.weeklyTrend < 0) {
+        } else if (timer.weeklyTrend && timer.weeklyTrend < 0) {
           trendHtml = `<span class="per-timer-trend down">${timer.weeklyTrend}%</span>`;
         } else {
           trendHtml = `<span class="per-timer-trend">0%</span>`;
@@ -523,7 +527,7 @@ function updateMetrics(data) {
           <div class="per-timer-row">
             <span class="per-timer-name">${escapeHtml(timer.displayName || timer.name)}</span>
             <span class="per-timer-today" data-timer="${timer.name}" data-base-elapsed="${timer.elapsedToday}">${formatDuration(timer.elapsedToday)}</span>
-            <span class="per-timer-weekly">${formatDuration(timer.weeklyTotal)} this wk</span>
+            <span class="per-timer-weekly">${formatDuration(timer.weeklyTotal || 0)} this wk</span>
             ${trendHtml}
           </div>
         `;
@@ -536,13 +540,13 @@ function updateMetrics(data) {
 }
 
 // Render timeline bar with color-coded segments
-async function renderTimeline() {
-  const timelineBar = document.getElementById('timeline-bar');
+async function renderTimeline(): Promise<void> {
+  const timelineBar = document.getElementById('timeline-bar') as HTMLElement;
 
-  const timelineTimes = document.getElementById('timeline-times');
+  const timelineTimes = document.getElementById('timeline-times') as HTMLElement | null;
 
   try {
-    const timeline = await window.timerAPI.getTimeline();
+    const timeline: TimelineData = await window.timerAPI.getTimeline();
 
     if (!timeline.segments || timeline.segments.length === 0) {
       timelineBar.innerHTML = '';
@@ -592,21 +596,22 @@ async function renderTimeline() {
 }
 
 // Initialize settings UI
-async function initSettings() {
+async function initSettings(): Promise<void> {
   try {
-    const settings = await window.timerAPI.getSettings();
+    const settings: Settings = await window.timerAPI.getSettings();
     if (settings) {
-      document.getElementById('pause-others').checked = settings.pauseOthersOnStart ?? true;
-      document.getElementById('play-sounds').checked = settings.playSounds ?? false;
-      document.getElementById('use-task-number-tray').checked = settings.useTaskNumberAsTrayIcon ?? true;
+      (document.getElementById('pause-others') as HTMLInputElement).checked = settings.pauseOthersOnStart ?? true;
+      (document.getElementById('play-sounds') as HTMLInputElement).checked = settings.playSounds ?? false;
+      (document.getElementById('use-task-number-tray') as HTMLInputElement).checked = settings.useTaskNumberAsTrayIcon ?? true;
 
       const hour = String(settings.dayStartHour ?? 0).padStart(2, '0');
       const minute = String(settings.dayStartMinute ?? 0).padStart(2, '0');
-      document.getElementById('day-start').value = `${hour}:${minute}`;
+      (document.getElementById('day-start') as HTMLInputElement).value = `${hour}:${minute}`;
 
       const pauseAllRaw = settings.hotkeys?.pauseAll ?? '';
-      document.getElementById('pause-all-hotkey').value = formatHotkey(pauseAllRaw);
-      document.getElementById('pause-all-hotkey').dataset.hotkey = pauseAllRaw;
+      const pauseAllInput = document.getElementById('pause-all-hotkey') as HTMLInputElement;
+      pauseAllInput.value = formatHotkey(pauseAllRaw);
+      pauseAllInput.dataset.hotkey = pauseAllRaw;
 
       // Render per-timer hotkeys
       renderTimerHotkeys(settings.hotkeys?.timers ?? {});
@@ -614,15 +619,15 @@ async function initSettings() {
 
     // Load events path
     const eventsPath = await window.timerAPI.getEventsPath();
-    document.getElementById('events-path').textContent = eventsPath;
+    document.getElementById('events-path')!.textContent = eventsPath;
   } catch (err) {
     console.error('Failed to load settings:', err);
   }
 }
 
 // Render per-timer hotkeys in settings
-function renderTimerHotkeys(timerHotkeys) {
-  const container = document.getElementById('timer-hotkeys-container');
+function renderTimerHotkeys(timerHotkeys: Record<string, string>): void {
+  const container = document.getElementById('timer-hotkeys-container') as HTMLElement;
   if (!currentTimers || currentTimers.length === 0) {
     container.innerHTML = '<div class="setting-description" style="padding: 12px; color: #666;">Create timers to assign hotkeys</div>';
     return;
@@ -645,19 +650,19 @@ function renderTimerHotkeys(timerHotkeys) {
   }).join('');
 
   // Add event listeners to timer hotkey inputs
-  container.querySelectorAll('.timer-hotkey-input').forEach(input => {
-    setupHotkeyInput(input, async (hotkey) => {
-      const timerName = input.dataset.timer;
+  container.querySelectorAll<HTMLInputElement>('.timer-hotkey-input').forEach(input => {
+    setupHotkeyInput(input, async (hotkey: string) => {
+      const timerName = input.dataset.timer!;
       const settings = await window.timerAPI.getSettings();
       const timers = { ...(settings.hotkeys?.timers ?? {}), [timerName]: hotkey };
       await window.timerAPI.updateSettings({ hotkeys: { ...settings.hotkeys, timers } });
     });
   });
 
-  container.querySelectorAll('.timer-hotkey-clear').forEach(btn => {
+  container.querySelectorAll<HTMLButtonElement>('.timer-hotkey-clear').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const timerName = btn.dataset.timer;
-      const input = container.querySelector(`.timer-hotkey-input[data-timer="${timerName}"]`);
+      const timerName = btn.dataset.timer!;
+      const input = container.querySelector(`.timer-hotkey-input[data-timer="${timerName}"]`) as HTMLInputElement | null;
       if (input) {
         input.value = '';
         input.dataset.hotkey = '';
@@ -670,18 +675,18 @@ function renderTimerHotkeys(timerHotkeys) {
   });
 }
 
-// Format hotkey for display (⌘ on macOS, Ctrl+ on others)
-function formatHotkey(accelerator) {
+// Format hotkey for display (command symbol on macOS, Ctrl+ on others)
+function formatHotkey(accelerator: string): string {
   if (!accelerator) return '';
   if (window.timerAPI.platform === 'darwin') {
-    return accelerator.replace(/CmdOrCtrl\+/g, '⌘');
+    return accelerator.replace(/CmdOrCtrl\+/g, '\u2318');
   }
   return accelerator.replace(/CmdOrCtrl\+/g, 'Ctrl+');
 }
 
 // Convert key event to Electron accelerator format
-function keyEventToAccelerator(e) {
-  const parts = [];
+function keyEventToAccelerator(e: KeyboardEvent): string | null {
+  const parts: string[] = [];
 
   if (e.metaKey) parts.push('CmdOrCtrl');
   else if (e.ctrlKey) parts.push('CmdOrCtrl');
@@ -715,7 +720,7 @@ function keyEventToAccelerator(e) {
 }
 
 // Setup hotkey recording for an input
-function setupHotkeyInput(input, onSave) {
+function setupHotkeyInput(input: HTMLInputElement, onSave: (hotkey: string) => Promise<void>): void {
   input.addEventListener('focus', () => {
     input.classList.add('recording');
     input.value = 'Press keys...';
@@ -729,7 +734,7 @@ function setupHotkeyInput(input, onSave) {
     }
   });
 
-  input.addEventListener('keydown', async (e) => {
+  input.addEventListener('keydown', async (e: KeyboardEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -755,15 +760,15 @@ function setupHotkeyInput(input, onSave) {
 }
 
 // Setup pause-all hotkey input
-const pauseAllHotkeyInput = document.getElementById('pause-all-hotkey');
-setupHotkeyInput(pauseAllHotkeyInput, async (hotkey) => {
+const pauseAllHotkeyInput = document.getElementById('pause-all-hotkey') as HTMLInputElement;
+setupHotkeyInput(pauseAllHotkeyInput, async (hotkey: string) => {
   const settings = await window.timerAPI.getSettings();
   await window.timerAPI.updateSettings({
     hotkeys: { ...settings.hotkeys, pauseAll: hotkey }
   });
 });
 
-document.getElementById('pause-all-clear').addEventListener('click', async () => {
+document.getElementById('pause-all-clear')!.addEventListener('click', async () => {
   pauseAllHotkeyInput.value = '';
   pauseAllHotkeyInput.dataset.previousValue = '';
   pauseAllHotkeyInput.dataset.hotkey = '';
@@ -774,33 +779,33 @@ document.getElementById('pause-all-clear').addEventListener('click', async () =>
 });
 
 // Settings change handlers
-document.getElementById('pause-others').addEventListener('change', async (e) => {
+(document.getElementById('pause-others') as HTMLInputElement).addEventListener('change', async (e: Event) => {
   try {
-    await window.timerAPI.updateSettings({ pauseOthersOnStart: e.target.checked });
+    await window.timerAPI.updateSettings({ pauseOthersOnStart: (e.target as HTMLInputElement).checked });
   } catch (err) {
     console.error('Failed to update setting:', err);
   }
 });
 
-document.getElementById('play-sounds').addEventListener('change', async (e) => {
+(document.getElementById('play-sounds') as HTMLInputElement).addEventListener('change', async (e: Event) => {
   try {
-    await window.timerAPI.updateSettings({ playSounds: e.target.checked });
+    await window.timerAPI.updateSettings({ playSounds: (e.target as HTMLInputElement).checked });
   } catch (err) {
     console.error('Failed to update setting:', err);
   }
 });
 
-document.getElementById('use-task-number-tray').addEventListener('change', async (e) => {
+(document.getElementById('use-task-number-tray') as HTMLInputElement).addEventListener('change', async (e: Event) => {
   try {
-    await window.timerAPI.updateSettings({ useTaskNumberAsTrayIcon: e.target.checked });
+    await window.timerAPI.updateSettings({ useTaskNumberAsTrayIcon: (e.target as HTMLInputElement).checked });
   } catch (err) {
     console.error('Failed to update setting:', err);
   }
 });
 
-document.getElementById('day-start').addEventListener('change', async (e) => {
+(document.getElementById('day-start') as HTMLInputElement).addEventListener('change', async (e: Event) => {
   try {
-    const [hour, minute] = e.target.value.split(':').map(Number);
+    const [hour, minute] = (e.target as HTMLInputElement).value.split(':').map(Number);
     await window.timerAPI.updateSettings({ dayStartHour: hour, dayStartMinute: minute });
   } catch (err) {
     console.error('Failed to update setting:', err);
@@ -808,22 +813,22 @@ document.getElementById('day-start').addEventListener('change', async (e) => {
 });
 
 // Event log path handlers
-document.getElementById('change-path-btn').addEventListener('click', async () => {
+document.getElementById('change-path-btn')!.addEventListener('click', async () => {
   try {
     const result = await window.timerAPI.setEventsPath();
     if (result.success) {
-      document.getElementById('events-path').textContent = result.path;
+      document.getElementById('events-path')!.textContent = result.path!;
     }
   } catch (err) {
     console.error('Failed to change events path:', err);
   }
 });
 
-document.getElementById('reset-path-btn').addEventListener('click', async () => {
+document.getElementById('reset-path-btn')!.addEventListener('click', async () => {
   try {
     const result = await window.timerAPI.resetEventsPath();
     if (result.success) {
-      document.getElementById('events-path').textContent = result.path;
+      document.getElementById('events-path')!.textContent = result.path!;
     }
   } catch (err) {
     console.error('Failed to reset events path:', err);
@@ -831,7 +836,7 @@ document.getElementById('reset-path-btn').addEventListener('click', async () => 
 });
 
 // Export/Import handlers
-document.getElementById('export-btn').addEventListener('click', async () => {
+document.getElementById('export-btn')!.addEventListener('click', async () => {
   try {
     const result = await window.timerAPI.exportData();
     if (result.success) {
@@ -844,7 +849,7 @@ document.getElementById('export-btn').addEventListener('click', async () => {
   }
 });
 
-document.getElementById('import-btn').addEventListener('click', async () => {
+document.getElementById('import-btn')!.addEventListener('click', async () => {
   try {
     const result = await window.timerAPI.importData();
     if (result.success) {
@@ -864,12 +869,12 @@ document.getElementById('import-btn').addEventListener('click', async () => {
 });
 
 // Exit button handler
-document.getElementById('exit-btn').addEventListener('click', async () => {
+document.getElementById('exit-btn')!.addEventListener('click', async () => {
   await window.timerAPI.quitApp();
 });
 
 // Listen for updates from main process
-window.timerAPI.onTimerUpdate((data) => {
+window.timerAPI.onTimerUpdate((data: TimerState) => {
   // Stop current live update and reset timing
   stopLiveUpdate();
 
@@ -879,7 +884,7 @@ window.timerAPI.onTimerUpdate((data) => {
 });
 
 // Initial load
-async function init() {
+async function init(): Promise<void> {
   await initSettings();
 
   try {
