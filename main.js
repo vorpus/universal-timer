@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, nativeImage, ipcMain, globalShortcut } = require('electron');
+const { app, BrowserWindow, Tray, nativeImage, ipcMain, globalShortcut, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -780,6 +780,115 @@ ipcMain.handle('settings:update', (event, updates) => {
     mainWindow.webContents.send('settings:updated', settings);
   }
   return settings;
+});
+
+// ========================================
+// Export/Import
+// ========================================
+
+ipcMain.handle('data:export', async () => {
+  try {
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Export Time Tracker Data',
+      defaultPath: `time-tracker-backup-${new Date().toISOString().slice(0, 10)}.json`,
+      filters: [{ name: 'JSON Files', extensions: ['json'] }]
+    });
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, canceled: true };
+    }
+
+    // Bundle settings and events
+    const events = loadEvents();
+    const exportData = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      settings: settings,
+      events: events
+    };
+
+    const tempPath = result.filePath + '.tmp';
+    fs.writeFileSync(tempPath, JSON.stringify(exportData, null, 2));
+    fs.renameSync(tempPath, result.filePath);
+
+    return { success: true, filePath: result.filePath };
+  } catch (err) {
+    console.error('Export failed:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('data:import', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Import Time Tracker Data',
+      filters: [{ name: 'JSON Files', extensions: ['json'] }],
+      properties: ['openFile']
+    });
+
+    if (result.canceled || !result.filePaths.length) {
+      return { success: false, canceled: true };
+    }
+
+    const filePath = result.filePaths[0];
+    const data = fs.readFileSync(filePath, 'utf8');
+    const importData = JSON.parse(data);
+
+    // Validate import data structure
+    if (!importData.version || !importData.settings || !importData.events) {
+      return { success: false, error: 'Invalid backup file format' };
+    }
+
+    // Confirm with user before overwriting
+    const confirm = await dialog.showMessageBox(mainWindow, {
+      type: 'warning',
+      buttons: ['Cancel', 'Import'],
+      defaultId: 0,
+      title: 'Confirm Import',
+      message: 'This will replace all your current data.',
+      detail: `The backup contains ${importData.events.length} events. Your current data will be overwritten.`
+    });
+
+    if (confirm.response === 0) {
+      return { success: false, canceled: true };
+    }
+
+    // Import settings
+    settings = { ...DEFAULT_SETTINGS, ...importData.settings };
+    saveSettings();
+
+    // Import events (overwrite the events file)
+    const eventsPath = getEventsPath();
+    const eventsContent = importData.events.map(e => JSON.stringify(e)).join('\n') + '\n';
+    const tempPath = eventsPath + '.tmp';
+    fs.writeFileSync(tempPath, eventsContent);
+    fs.renameSync(tempPath, eventsPath);
+
+    // Reload display names from imported events
+    timerDisplayNames.clear();
+    for (const event of importData.events) {
+      if (event.timer) {
+        const normalized = normalizeTimerName(event.timer);
+        if (!timerDisplayNames.has(normalized)) {
+          timerDisplayNames.set(normalized, event.timer);
+        }
+      }
+    }
+
+    // Re-register hotkeys with new settings
+    registerGlobalHotkeys();
+
+    // Notify renderer of changes
+    notifyRenderer();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('settings:updated', settings);
+    }
+
+    return { success: true, eventsCount: importData.events.length };
+  } catch (err) {
+    console.error('Import failed:', err);
+    return { success: false, error: err.message };
+  }
 });
 
 // ========================================

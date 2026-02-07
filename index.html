@@ -342,6 +342,27 @@
       transform: translateX(20px);
     }
 
+    /* Action buttons */
+    .action-btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      background: #4a9eff;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .action-btn:hover {
+      background: #3a8eef;
+    }
+
+    .action-btn:active {
+      background: #2a7edf;
+    }
+
     /* Scrollbar styling */
     ::-webkit-scrollbar {
       width: 6px;
@@ -443,6 +464,24 @@
               <div class="setting-label">Pause all timers</div>
               <div class="setting-description" id="pause-all-hotkey">CmdOrCtrl+Shift+P</div>
             </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">Data</div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Export data</div>
+              <div class="setting-description">Save settings and timer history</div>
+            </div>
+            <button class="action-btn" id="export-btn">Export</button>
+          </div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Import data</div>
+              <div class="setting-description">Restore from backup file</div>
+            </div>
+            <button class="action-btn" id="import-btn">Import</button>
           </div>
         </div>
       </div>

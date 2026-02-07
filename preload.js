@@ -17,6 +17,10 @@ contextBridge.exposeInMainWorld('timerAPI', {
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (settings) => ipcRenderer.invoke('settings:update', settings),
 
+  // Data export/import
+  exportData: () => ipcRenderer.invoke('data:export'),
+  importData: () => ipcRenderer.invoke('data:import'),
+
   // Event listeners for updates from main process
   onTimerUpdate: (callback) => {
     ipcRenderer.on('timer:updated', (event, data) => callback(data));

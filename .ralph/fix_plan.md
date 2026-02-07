@@ -63,8 +63,8 @@
 - [ ] Build hotkey input components for pause all and per-timer shortcuts
 - [x] Implement preference toggles (pause others, play sounds, day start time)
 - [ ] Add event log location display with file picker
-- [ ] Implement import functionality with confirmation dialog
-- [ ] Implement export functionality (bundled settings + events)
+- [x] Implement import functionality with confirmation dialog
+- [x] Implement export functionality (bundled settings + events)
 
 ### Phase 7: Global Hotkeys
 

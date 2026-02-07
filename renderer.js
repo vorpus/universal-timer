@@ -289,6 +289,39 @@ document.getElementById('day-start').addEventListener('change', async (e) => {
   }
 });
 
+// Export/Import handlers
+document.getElementById('export-btn').addEventListener('click', async () => {
+  try {
+    const result = await window.timerAPI.exportData();
+    if (result.success) {
+      console.log('Export successful:', result.filePath);
+    } else if (result.error) {
+      console.error('Export failed:', result.error);
+    }
+  } catch (err) {
+    console.error('Export failed:', err);
+  }
+});
+
+document.getElementById('import-btn').addEventListener('click', async () => {
+  try {
+    const result = await window.timerAPI.importData();
+    if (result.success) {
+      console.log('Import successful:', result.eventsCount, 'events imported');
+      // Refresh the UI
+      await initSettings();
+      const state = await window.timerAPI.getState();
+      renderTimers(state.timers, state.runningTimer);
+      updateMetrics(state);
+      await renderTimeline();
+    } else if (result.error) {
+      console.error('Import failed:', result.error);
+    }
+  } catch (err) {
+    console.error('Import failed:', err);
+  }
+});
+
 // Listen for updates from main process
 window.timerAPI.onTimerUpdate((data) => {
   // Stop current live update and reset timing
