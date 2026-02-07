@@ -3,38 +3,38 @@
 ## High Priority
 
 ### Phase 1: Project Foundation
-- [ ] Initialize Electron project with package.json and npm scripts
-- [ ] Create main.js with basic Electron app lifecycle (ready, quit events)
-- [ ] Implement tray icon creation and window toggle behavior
-- [ ] Hide dock icon on macOS using `app.dock.hide()`
-- [ ] Create frameless BrowserWindow (360×520) anchored to tray
+- [x] Initialize Electron project with package.json and npm scripts
+- [x] Create main.js with basic Electron app lifecycle (ready, quit events)
+- [x] Implement tray icon creation and window toggle behavior
+- [x] Hide dock icon on macOS using `app.dock.hide()`
+- [x] Create frameless BrowserWindow (360×520) anchored to tray
 
 ### Phase 2: Data Layer
-- [ ] Implement settings.json read/write with atomic file operations
-- [ ] Implement events.jsonl append-only log with fs.appendFileSync
-- [ ] Create event log parser that reconstructs timer state from log
-- [ ] Implement crash recovery: detect and resume unterminated timers
-- [ ] Add timer name normalization (case-insensitive, trimmed)
+- [x] Implement settings.json read/write with atomic file operations
+- [x] Implement events.jsonl append-only log with fs.appendFileSync
+- [x] Create event log parser that reconstructs timer state from log
+- [x] Implement crash recovery: detect and resume unterminated timers
+- [x] Add timer name normalization (case-insensitive, trimmed)
 
 ### Phase 3: Timer Core Logic
-- [ ] Implement timer state machine (start, pause, pause_all events)
-- [ ] Compute elapsed time per timer for date ranges
-- [ ] Handle day boundary splitting with configurable day start time
-- [ ] Track currently running timer(s) in memory
-- [ ] Implement "pause others on start" logic
+- [x] Implement timer state machine (start, pause, pause_all events)
+- [x] Compute elapsed time per timer for date ranges
+- [x] Handle day boundary splitting with configurable day start time
+- [x] Track currently running timer(s) in memory
+- [x] Implement "pause others on start" logic
 
 ## Medium Priority
 
 ### Phase 4: UI - Timers Tab
-- [ ] Create preload.js with IPC bridge for renderer communication
-- [ ] Build index.html with three-tab layout (Timers, Metrics, Settings)
-- [ ] Implement new timer input field with Enter to create/resume
-- [ ] Build scrollable timer list with name, elapsed time, play/pause button
+- [x] Create preload.js with IPC bridge for renderer communication
+- [x] Build index.html with three-tab layout (Timers, Metrics, Settings)
+- [x] Implement new timer input field with Enter to create/resume
+- [x] Build scrollable timer list with name, elapsed time, play/pause button
 - [ ] Add live-updating elapsed time display for running timers
-- [ ] Highlight currently running timer visually
+- [x] Highlight currently running timer visually
 
 ### Phase 5: UI - Metrics Tab
-- [ ] Display total time spent today across all timers
+- [x] Display total time spent today across all timers
 - [ ] Calculate and display weekly trend percentage
 - [ ] Implement timeline bar with color-coded timer segments
 - [ ] Handle overlapping timers in timeline (stacked segments)
@@ -42,7 +42,7 @@
 
 ### Phase 6: UI - Settings Tab
 - [ ] Build hotkey input components for pause all and per-timer shortcuts
-- [ ] Implement preference toggles (pause others, play sounds, day start time)
+- [x] Implement preference toggles (pause others, play sounds, day start time)
 - [ ] Add event log location display with file picker
 - [ ] Implement import functionality with confirmation dialog
 - [ ] Implement export functionality (bundled settings + events)
@@ -56,15 +56,15 @@
 ## Low Priority
 
 ### Phase 8: Polish & UX
-- [ ] Create placeholder tray icons (idle + per-timer variants)
+- [x] Create placeholder tray icons (idle + per-timer variants)
 - [ ] Implement tray icon switching based on running timer
 - [ ] Add background indicator to tray when timer is active
 - [ ] Implement optional sound effects on timer start/pause
 - [ ] Add placeholder .wav files for sounds
 
 ### Phase 9: Edge Cases & Robustness
-- [ ] Handle partial/corrupt event log lines (discard incomplete JSON)
-- [ ] Validate settings on load with defaults for missing fields
+- [x] Handle partial/corrupt event log lines (discard incomplete JSON)
+- [x] Validate settings on load with defaults for missing fields
 - [ ] Handle file system errors gracefully
 - [ ] Test behavior across midnight with various day start times
 - [ ] Verify import/export round-trip integrity
@@ -72,6 +72,10 @@
 ## Completed
 - [x] Project initialization
 - [x] Ralph configuration setup
+- [x] Phase 1: Project Foundation (all items)
+- [x] Phase 2: Data Layer (all items)
+- [x] Phase 3: Timer Core Logic (all items)
+- [x] Phase 4: UI - Timers Tab (most items, live-updating pending)
 
 ## Notes
 

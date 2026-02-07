@@ -1,22 +1,23 @@
 {
-  "name": "universal-timer",
+  "name": "time-tracker",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "A lightweight menu bar time tracker for macOS",
+  "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "electron .",
+    "test": "node --test test/*.test.js"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/vorpus/universal-timer.git"
   },
-  "keywords": [],
+  "keywords": ["timer", "time-tracker", "electron", "menubar"],
   "author": "",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/vorpus/universal-timer/issues"
   },
   "homepage": "https://github.com/vorpus/universal-timer#readme",
-  "description": "",
   "devDependencies": {
     "electron": "^40.2.1"
   }
