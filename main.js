@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, nativeImage, ipcMain, globalShortcut, dialog } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, globalShortcut, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -79,6 +79,14 @@ function createTray() {
   // Toggle window on tray click
   tray.on('click', (event, bounds) => {
     toggleWindow(bounds);
+  });
+
+  // Right-click context menu with Quit option
+  const contextMenu = Menu.buildFromTemplate([
+    { label: 'Quit', click: () => app.quit() }
+  ]);
+  tray.on('right-click', () => {
+    tray.popUpContextMenu(contextMenu);
   });
 }
 
@@ -189,7 +197,7 @@ function registerGlobalHotkeys() {
       const registered = globalShortcut.register(hotkey, () => {
         // Toggle timer: if running, pause it; if paused, start it
         const state = computeTimerState();
-        if (state.runningTimer === timerName) {
+        if (state.runningTimers.includes(timerName)) {
           pauseTimer(timerName);
         } else {
           startTimer(timerName);
@@ -212,14 +220,7 @@ app.whenReady().then(() => {
 
   // Check if there's a running timer on startup (crash recovery) and update tray icon
   const initialState = computeTimerState();
-  let timerIndex = null;
-  if (initialState.runningTimer !== null) {
-    const index = initialState.timers.findIndex(t => t.name === initialState.runningTimer);
-    if (index !== -1) {
-      timerIndex = index + 1; // 1-based index
-    }
-  }
-  updateTrayIcon(timerIndex);
+  updateTrayIcon(getTrayIconIndex(initialState));
 });
 
 app.on('window-all-closed', () => {
@@ -277,7 +278,9 @@ const DEFAULT_SETTINGS = {
     timers: {}
   },
   timerIcons: {},
-  useTaskNumberAsTrayIcon: true
+  useTaskNumberAsTrayIcon: true,
+  timerOrder: [],
+  timerFriendlyNames: {}
 };
 
 // In-memory state
@@ -335,6 +338,25 @@ function appendEvent(event) {
   }
 }
 
+function purgeTimerEvents(normalizedName) {
+  try {
+    const events = loadEvents();
+    const filtered = events.filter(e => {
+      // Keep pause_all events (they apply globally)
+      if (e.event === 'pause_all') return true;
+      // Remove events belonging to this timer
+      return e.timer !== normalizedName;
+    });
+    const eventsPath = getEventsPath();
+    const content = filtered.map(e => JSON.stringify(e)).join('\n') + (filtered.length ? '\n' : '');
+    const tempPath = eventsPath + '.tmp';
+    fs.writeFileSync(tempPath, content);
+    fs.renameSync(tempPath, eventsPath);
+  } catch (err) {
+    notifyError('Failed to purge timer events', err);
+  }
+}
+
 function loadEvents() {
   try {
     const eventsPath = getEventsPath();
@@ -372,6 +394,10 @@ const timerDisplayNames = new Map();
 function getDisplayName(normalizedName, originalName) {
   if (!timerDisplayNames.has(normalizedName)) {
     timerDisplayNames.set(normalizedName, originalName.trim());
+  }
+  // Friendly name (from rename) takes priority over original casing
+  if (settings.timerFriendlyNames?.[normalizedName]) {
+    return settings.timerFriendlyNames[normalizedName];
   }
   return timerDisplayNames.get(normalizedName);
 }
@@ -460,6 +486,132 @@ function calculateTotalForDay(events, dayStart, dayEnd, activeTimers, now) {
   }
 
   return total;
+}
+
+function calculatePerTimerTotalsForDay(events, dayStart, dayEnd, activeTimers, now) {
+  // Build intervals from events
+  const timerIntervals = new Map();
+  const tempActiveTimers = new Map();
+
+  for (const event of events) {
+    const ts = event.ts;
+    const timer = event.timer;
+
+    if (event.event === 'start') {
+      tempActiveTimers.set(timer, ts);
+    } else if (event.event === 'pause') {
+      if (tempActiveTimers.has(timer)) {
+        const startTs = tempActiveTimers.get(timer);
+        if (!timerIntervals.has(timer)) {
+          timerIntervals.set(timer, []);
+        }
+        timerIntervals.get(timer).push({ start: startTs, end: ts });
+        tempActiveTimers.delete(timer);
+      }
+    } else if (event.event === 'pause_all') {
+      for (const [t, startTs] of tempActiveTimers) {
+        if (!timerIntervals.has(t)) {
+          timerIntervals.set(t, []);
+        }
+        timerIntervals.get(t).push({ start: startTs, end: ts });
+      }
+      tempActiveTimers.clear();
+    }
+  }
+
+  const dayStartTs = dayStart.getTime();
+  const dayEndTs = dayEnd.getTime();
+  const perTimer = new Map();
+
+  // Sum completed intervals that overlap with this day, per timer
+  for (const [timerName, intervals] of timerIntervals) {
+    let total = 0;
+    for (const interval of intervals) {
+      const overlapStart = Math.max(interval.start, dayStartTs);
+      const overlapEnd = Math.min(interval.end, dayEndTs);
+      if (overlapStart < overlapEnd) {
+        total += overlapEnd - overlapStart;
+      }
+    }
+    if (total > 0) {
+      perTimer.set(timerName, total);
+    }
+  }
+
+  // Add time from currently active timers (only for today)
+  if (activeTimers && now) {
+    for (const [timerName, startTs] of activeTimers) {
+      const overlapStart = Math.max(startTs, dayStartTs);
+      const overlapEnd = Math.min(now, dayEndTs);
+      if (overlapStart < overlapEnd) {
+        const existing = perTimer.get(timerName) || 0;
+        perTimer.set(timerName, existing + (overlapEnd - overlapStart));
+      }
+    }
+  }
+
+  return perTimer;
+}
+
+function calculatePerTimerWeeklyStats(events, activeTimers, now) {
+  const today = getDayStart();
+  const todayEnd = getDayEnd(today);
+
+  // Get the start of the week (Monday as first day)
+  const dayOfWeek = today.getDay();
+  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+
+  // Get today's per-timer totals
+  const todayTotals = calculatePerTimerTotalsForDay(events, today, todayEnd, activeTimers, now);
+
+  // Sum per-timer totals for Mon through today
+  const weeklyTotals = new Map();
+  const previousDayTotals = new Map(); // timer -> [dayTotals...]
+
+  // Add today's totals to weekly
+  for (const [timer, ms] of todayTotals) {
+    weeklyTotals.set(timer, ms);
+  }
+
+  // Calculate previous days this week
+  for (let i = 1; i <= daysFromMonday; i++) {
+    const dayStart = new Date(today);
+    dayStart.setDate(dayStart.getDate() - i);
+    const dayEnd = getDayEnd(dayStart);
+
+    const dayTotals = calculatePerTimerTotalsForDay(events, dayStart, dayEnd, null, null);
+    for (const [timer, ms] of dayTotals) {
+      weeklyTotals.set(timer, (weeklyTotals.get(timer) || 0) + ms);
+      if (!previousDayTotals.has(timer)) {
+        previousDayTotals.set(timer, []);
+      }
+      previousDayTotals.get(timer).push(ms);
+    }
+  }
+
+  // Calculate per-timer weekly trends (today vs avg of previous days)
+  const weeklyTrends = new Map();
+  for (const timer of new Set([...todayTotals.keys(), ...previousDayTotals.keys()])) {
+    const todayMs = todayTotals.get(timer) || 0;
+    const prevDays = previousDayTotals.get(timer) || [];
+
+    if (daysFromMonday === 0) {
+      // Monday — no previous days to compare
+      weeklyTrends.set(timer, 0);
+    } else if (prevDays.length === 0) {
+      // No previous data this week
+      weeklyTrends.set(timer, todayMs > 0 ? 100 : 0);
+    } else {
+      const prevAvg = prevDays.reduce((s, v) => s + v, 0) / daysFromMonday;
+      if (prevAvg === 0) {
+        weeklyTrends.set(timer, todayMs > 0 ? 100 : 0);
+      } else {
+        weeklyTrends.set(timer, Math.round(((todayMs - prevAvg) / prevAvg) * 100));
+      }
+    }
+  }
+
+  return { weeklyTotals, weeklyTrends };
 }
 
 function calculateWeeklyTrend(events, todayTotal, activeTimers, now) {
@@ -568,19 +720,31 @@ function computeTimerState() {
 
     timers.push({
       name: timerName,
-      displayName: timerDisplayNames.get(timerName) || timerName,
-      elapsedToday
+      displayName: getDisplayName(timerName, timerName),
+      elapsedToday,
+      isRunning: activeTimers.has(timerName)
     });
   }
 
-  // Sort by most recently used (or by elapsed time descending)
-  timers.sort((a, b) => b.elapsedToday - a.elapsedToday);
+  // Sort by custom order (settings.timerOrder), with new timers at top
+  const timerOrder = settings.timerOrder || [];
+  timers.sort((a, b) => {
+    const aIndex = timerOrder.indexOf(a.name);
+    const bIndex = timerOrder.indexOf(b.name);
 
-  // Compute running timer
-  let currentRunning = null;
-  if (activeTimers.size > 0) {
-    currentRunning = [...activeTimers.keys()][0];
-  }
+    // New timers (not in order array) go to top, sorted by elapsed time
+    if (aIndex === -1 && bIndex === -1) {
+      return b.elapsedToday - a.elapsedToday;
+    }
+    if (aIndex === -1) return -1; // a is new, goes first
+    if (bIndex === -1) return 1;  // b is new, goes first
+
+    // Both in order array, use stored order
+    return aIndex - bIndex;
+  });
+
+  // Compute running timers
+  const runningTimers = [...activeTimers.keys()];
 
   // Calculate total today
   const totalToday = timers.reduce((sum, t) => sum + t.elapsedToday, 0);
@@ -588,9 +752,18 @@ function computeTimerState() {
   // Calculate weekly trend
   const weeklyTrend = calculateWeeklyTrend(events, totalToday, activeTimers, now);
 
+  // Calculate per-timer weekly stats
+  const { weeklyTotals, weeklyTrends } = calculatePerTimerWeeklyStats(events, activeTimers, now);
+
+  // Attach weekly data to each timer
+  for (const timer of timers) {
+    timer.weeklyTotal = weeklyTotals.get(timer.name) || 0;
+    timer.weeklyTrend = weeklyTrends.get(timer.name) || 0;
+  }
+
   return {
     timers,
-    runningTimer: currentRunning,
+    runningTimers,
     totalToday,
     weeklyTrend
   };
@@ -668,7 +841,7 @@ function getTodayTimeline() {
       if (overlapStart < overlapEnd) {
         segments.push({
           timer: timerName,
-          displayName: timerDisplayNames.get(timerName) || timerName,
+          displayName: getDisplayName(timerName, timerName),
           start: overlapStart,
           end: overlapEnd,
           color: getTimerColor(timerName, timerOrder)
@@ -684,7 +857,7 @@ function getTodayTimeline() {
     if (overlapStart < overlapEnd) {
       segments.push({
         timer: timerName,
-        displayName: timerDisplayNames.get(timerName) || timerName,
+        displayName: getDisplayName(timerName, timerName),
         start: overlapStart,
         end: overlapEnd,
         color: getTimerColor(timerName, timerOrder)
@@ -695,9 +868,30 @@ function getTodayTimeline() {
   // Sort by start time
   segments.sort((a, b) => a.start - b.start);
 
+  // Dynamic timeline boundaries
+  let effectiveStart = todayStart;
+  if (segments.length > 0) {
+    effectiveStart = segments[0].start;
+  }
+
+  // Dynamic end: current time rounded up to next hour, capped at dayEnd
+  let effectiveEnd = todayEnd;
+  if (segments.length > 0) {
+    const nowDate = new Date(now);
+    const nextHour = new Date(nowDate);
+    nextHour.setMinutes(0, 0, 0);
+    nextHour.setHours(nextHour.getHours() + 1);
+    effectiveEnd = Math.min(nextHour.getTime(), todayEnd);
+  }
+
+  // Guard: if effectiveEnd <= effectiveStart, fall back to todayEnd
+  if (effectiveEnd <= effectiveStart) {
+    effectiveEnd = todayEnd;
+  }
+
   return {
-    dayStart: todayStart,
-    dayEnd: todayEnd,
+    dayStart: effectiveStart,
+    dayEnd: effectiveEnd,
     segments,
     timerColors: Object.fromEntries(timerOrder.map((t, i) => [t, TIMER_COLORS[i % TIMER_COLORS.length]]))
   };
@@ -711,13 +905,21 @@ function startTimer(timerName) {
   const normalized = normalizeTimerName(timerName);
   getDisplayName(normalized, timerName);
 
+  // Auto-add new timers to end of ordering
+  if (!settings.timerOrder.includes(normalized)) {
+    settings.timerOrder.push(normalized);
+    saveSettings();
+  }
+
   const now = Date.now();
 
   // Pause others if setting is enabled
   if (settings.pauseOthersOnStart) {
     const state = computeTimerState();
-    if (state.runningTimer && state.runningTimer !== normalized) {
-      appendEvent({ ts: now, event: 'pause', timer: state.runningTimer });
+    for (const running of state.runningTimers) {
+      if (running !== normalized) {
+        appendEvent({ ts: now, event: 'pause', timer: running });
+      }
     }
   }
 
@@ -741,20 +943,24 @@ function pauseAll() {
   notifyRenderer();
 }
 
+function getTrayIconIndex(state) {
+  if (state.runningTimers.length === 0) {
+    return null;
+  }
+  // Multiple timers running - use generic recording icon (not numbered)
+  if (state.runningTimers.length > 1) {
+    return 0;
+  }
+  // Single timer - use its 1-based position
+  const index = state.timers.findIndex(t => t.name === state.runningTimers[0]);
+  return index !== -1 ? index + 1 : null;
+}
+
 function notifyRenderer() {
   const state = computeTimerState();
 
-  // Compute running timer's index (1-based position in sorted timer list)
-  let timerIndex = null;
-  if (state.runningTimer !== null) {
-    const index = state.timers.findIndex(t => t.name === state.runningTimer);
-    if (index !== -1) {
-      timerIndex = index + 1; // 1-based index
-    }
-  }
-
-  // Update tray icon based on running timer index
-  updateTrayIcon(timerIndex);
+  // Update tray icon based on running timers
+  updateTrayIcon(getTrayIconIndex(state));
 
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('timer:updated', state);
@@ -800,6 +1006,55 @@ ipcMain.handle('settings:get', () => {
   return settings;
 });
 
+ipcMain.handle('timer:rename', (event, normalizedName, newFriendlyName) => {
+  if (!settings.timerFriendlyNames) {
+    settings.timerFriendlyNames = {};
+  }
+  settings.timerFriendlyNames[normalizedName] = newFriendlyName.trim();
+  saveSettings();
+  notifyRenderer();
+  return computeTimerState();
+});
+
+ipcMain.handle('timer:delete', (event, normalizedName) => {
+  // Remove from timerOrder
+  settings.timerOrder = (settings.timerOrder || []).filter(n => n !== normalizedName);
+
+  // Remove hotkey
+  if (settings.hotkeys?.timers?.[normalizedName]) {
+    delete settings.hotkeys.timers[normalizedName];
+  }
+
+  // Remove friendly name
+  if (settings.timerFriendlyNames?.[normalizedName]) {
+    delete settings.timerFriendlyNames[normalizedName];
+  }
+
+  // Remove from deletedTimers if present (cleanup)
+  if (settings.deletedTimers) {
+    settings.deletedTimers = settings.deletedTimers.filter(n => n !== normalizedName);
+  }
+
+  saveSettings();
+
+  // Purge events for this timer from the log file
+  purgeTimerEvents(normalizedName);
+
+  // Clean up display name
+  timerDisplayNames.delete(normalizedName);
+
+  registerGlobalHotkeys();
+  notifyRenderer();
+  return computeTimerState();
+});
+
+ipcMain.handle('settings:updateTimerOrder', (event, order) => {
+  settings.timerOrder = order;
+  saveSettings();
+  notifyRenderer();
+  return settings;
+});
+
 ipcMain.handle('settings:update', (event, updates) => {
   const oldHotkeys = JSON.stringify(settings.hotkeys);
   const oldUseTaskNumber = settings.useTaskNumberAsTrayIcon;
@@ -814,14 +1069,7 @@ ipcMain.handle('settings:update', (event, updates) => {
   // Refresh tray icon if the task number setting changed
   if (settings.useTaskNumberAsTrayIcon !== oldUseTaskNumber) {
     const state = computeTimerState();
-    let timerIndex = null;
-    if (state.runningTimer !== null) {
-      const index = state.timers.findIndex(t => t.name === state.runningTimer);
-      if (index !== -1) {
-        timerIndex = index + 1;
-      }
-    }
-    updateTrayIcon(timerIndex);
+    updateTrayIcon(getTrayIconIndex(state));
   }
 
   if (mainWindow && !mainWindow.isDestroyed()) {

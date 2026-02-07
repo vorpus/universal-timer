@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld('timerAPI', {
   startTimer: (timerName) => ipcRenderer.invoke('timer:start', timerName),
   pauseTimer: (timerName) => ipcRenderer.invoke('timer:pause', timerName),
   pauseAll: () => ipcRenderer.invoke('timer:pauseAll'),
+  renameTimer: (name, newName) => ipcRenderer.invoke('timer:rename', name, newName),
+  deleteTimer: (name) => ipcRenderer.invoke('timer:delete', name),
 
   // Get timer state
   getTimers: () => ipcRenderer.invoke('timer:getAll'),
@@ -16,6 +18,7 @@ contextBridge.exposeInMainWorld('timerAPI', {
   // Settings
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (settings) => ipcRenderer.invoke('settings:update', settings),
+  updateTimerOrder: (order) => ipcRenderer.invoke('settings:updateTimerOrder', order),
 
   // Data export/import
   exportData: () => ipcRenderer.invoke('data:export'),
@@ -23,6 +26,9 @@ contextBridge.exposeInMainWorld('timerAPI', {
   getEventsPath: () => ipcRenderer.invoke('data:getEventsPath'),
   setEventsPath: () => ipcRenderer.invoke('data:setEventsPath'),
   resetEventsPath: () => ipcRenderer.invoke('data:resetEventsPath'),
+
+  // Platform info
+  platform: process.platform,
 
   // App control
   quitApp: () => ipcRenderer.invoke('app:quit'),

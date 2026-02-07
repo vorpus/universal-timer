@@ -217,6 +217,75 @@
       font-size: 13px;
     }
 
+    /* Add Timer Section */
+    .add-timer-section {
+      border-top: 1px solid #333;
+      background: #222;
+    }
+
+    .add-timer-btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      background: transparent;
+      color: #4a9eff;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background 0.2s;
+    }
+
+    .add-timer-btn:hover {
+      background: #2a2a2a;
+    }
+
+    .add-timer-btn:focus {
+      outline: none;
+    }
+
+    .add-timer-input-wrapper {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.2s ease-out;
+    }
+
+    .add-timer-input-wrapper.expanded {
+      max-height: 60px;
+    }
+
+    .add-timer-input-wrapper .timer-input-container {
+      border-bottom: none;
+      border-top: 1px solid #333;
+    }
+
+    /* Drag and Drop */
+    .drag-handle {
+      cursor: grab;
+      padding: 4px 8px;
+      margin-right: 4px;
+      color: #555;
+      font-size: 12px;
+      user-select: none;
+    }
+
+    .drag-handle:hover {
+      color: #888;
+    }
+
+    .timer-item.dragging {
+      opacity: 0.5;
+      background: #333;
+    }
+
+    .timer-item.drag-over {
+      border-top: 2px solid #4a9eff;
+      margin-top: -2px;
+    }
+
     /* Metrics tab */
     .metrics-content {
       padding: 16px;
@@ -280,6 +349,63 @@
 
     .timeline-segment {
       height: 100%;
+    }
+
+    .timeline-times {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 4px;
+      font-size: 11px;
+      color: #666;
+    }
+
+    .per-timer-stats {
+      margin-bottom: 12px;
+    }
+
+    .per-timer-row {
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      background: #252525;
+      border-radius: 6px;
+      margin-bottom: 4px;
+    }
+
+    .per-timer-name {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .per-timer-today {
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+      margin-right: 12px;
+      color: #e0e0e0;
+    }
+
+    .per-timer-weekly {
+      font-size: 11px;
+      color: #888;
+      margin-right: 8px;
+    }
+
+    .per-timer-trend {
+      font-size: 11px;
+      min-width: 48px;
+      text-align: right;
+    }
+
+    .per-timer-trend.up {
+      color: #4ade80;
+    }
+
+    .per-timer-trend.down {
+      color: #f87171;
     }
 
     /* Settings tab */
@@ -447,6 +573,63 @@
       color: #f87171;
     }
 
+    /* Context menu */
+    .context-menu {
+      position: fixed;
+      z-index: 100;
+      background: #2a2a2a;
+      border: 1px solid #444;
+      border-radius: 6px;
+      padding: 4px 0;
+      min-width: 120px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+
+    .context-menu-item {
+      padding: 8px 16px;
+      font-size: 13px;
+      cursor: pointer;
+      color: #e0e0e0;
+    }
+
+    .context-menu-item:hover {
+      background: #333;
+    }
+
+    .context-menu-item.context-menu-danger {
+      color: #f87171;
+    }
+
+    .context-menu-item.context-menu-danger:hover {
+      background: #3a2020;
+    }
+
+    /* Inline rename input */
+    .timer-name.renaming {
+      overflow: visible;
+      white-space: normal;
+      text-overflow: clip;
+      display: flex;
+      align-items: center;
+    }
+
+    .timer-name.renaming .timer-order {
+      flex-shrink: 0;
+    }
+
+    .timer-name-input {
+      background: #2a2a2a;
+      border: 1px solid #4a9eff;
+      border-radius: 4px;
+      color: #e0e0e0;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 4px 8px;
+      outline: none;
+      flex: 1;
+      min-width: 0;
+    }
+
     /* Toast notification */
     .toast-container {
       position: fixed;
@@ -517,6 +700,10 @@
   </style>
 </head>
 <body>
+  <div class="context-menu" id="context-menu" style="display: none;">
+    <div class="context-menu-item" id="context-menu-rename">Rename</div>
+    <div class="context-menu-item context-menu-danger" id="context-menu-delete">Delete</div>
+  </div>
   <div class="toast-container" id="toast-container"></div>
   <div class="container">
     <!-- Tab navigation -->
@@ -528,13 +715,18 @@
 
     <!-- Timers tab -->
     <div class="tab-content active" id="timers-tab">
-      <div class="timer-input-container">
-        <input type="text" class="timer-input" id="timer-input" placeholder="New timer name...">
-      </div>
       <div class="timer-list" id="timer-list">
         <div class="empty-state">
           <p>No timers yet</p>
-          <p>Type a name above and press Enter to start</p>
+          <p>Click "Add Timer" below to start</p>
+        </div>
+      </div>
+      <div class="add-timer-section">
+        <button class="add-timer-btn" id="add-timer-btn">+ Add Timer</button>
+        <div class="add-timer-input-wrapper" id="add-timer-wrapper">
+          <div class="timer-input-container">
+            <input type="text" class="timer-input" id="timer-input" placeholder="New timer name...">
+          </div>
         </div>
       </div>
     </div>
@@ -547,9 +739,11 @@
           <div class="metric-value" id="total-time">0:00:00</div>
           <div class="metric-trend" id="weekly-trend"></div>
         </div>
+        <div id="per-timer-stats"></div>
         <div class="timeline-container">
           <div class="timeline-label">Today's Timeline</div>
           <div class="timeline-bar" id="timeline-bar"></div>
+          <div class="timeline-times" id="timeline-times"></div>
         </div>
       </div>
     </div>

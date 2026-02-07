@@ -23,7 +23,7 @@ const tabContents = document.querySelectorAll('.tab-content');
 
 // Live update state
 let currentTimers = [];
-let currentRunningTimer = null;
+let currentRunningTimers = [];
 let liveUpdateInterval = null;
 
 tabs.forEach(tab => {
@@ -47,6 +47,23 @@ tabs.forEach(tab => {
 // Timer input handling
 const timerInput = document.getElementById('timer-input');
 const timerList = document.getElementById('timer-list');
+const addTimerBtn = document.getElementById('add-timer-btn');
+const addTimerWrapper = document.getElementById('add-timer-wrapper');
+
+// Expand/collapse add timer input
+function expandAddTimer() {
+  addTimerWrapper.classList.add('expanded');
+  addTimerBtn.style.display = 'none';
+  timerInput.focus();
+}
+
+function collapseAddTimer() {
+  addTimerWrapper.classList.remove('expanded');
+  addTimerBtn.style.display = 'flex';
+  timerInput.value = '';
+}
+
+addTimerBtn.addEventListener('click', expandAddTimer);
 
 timerInput.addEventListener('keydown', async (e) => {
   if (e.key === 'Enter') {
@@ -55,9 +72,23 @@ timerInput.addEventListener('keydown', async (e) => {
       try {
         await window.timerAPI.startTimer(timerName);
         timerInput.value = '';
+        collapseAddTimer();
       } catch (err) {
         console.error('Failed to start timer:', err);
       }
+    }
+  } else if (e.key === 'Escape') {
+    collapseAddTimer();
+  }
+});
+
+// Close add timer on click outside
+document.addEventListener('click', (e) => {
+  if (addTimerWrapper.classList.contains('expanded')) {
+    const addTimerSection = document.querySelector('.add-timer-section');
+    const isClickInsideSection = addTimerSection && addTimerSection.contains(e.target);
+    if (!isClickInsideSection) {
+      collapseAddTimer();
     }
   }
 });
@@ -72,17 +103,163 @@ function formatTime(ms) {
   return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
+// Format duration as compact string like "2h 30m" or "45m"
+function formatDuration(ms) {
+  const totalMinutes = Math.floor(ms / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours > 0 && minutes > 0) {
+    return `${hours}h ${minutes}m`;
+  } else if (hours > 0) {
+    return `${hours}h`;
+  } else {
+    return `${minutes}m`;
+  }
+}
+
+// Format timestamp as compact hour label like "8a", "12p", "5p"
+function formatCompactHour(timestamp) {
+  const date = new Date(timestamp);
+  let hours = date.getHours();
+  const minutes = date.getMinutes();
+  const suffix = hours >= 12 ? 'p' : 'a';
+  if (hours === 0) hours = 12;
+  else if (hours > 12) hours -= 12;
+
+  if (minutes === 0) {
+    return `${hours}${suffix}`;
+  }
+  return `${hours}:${String(minutes).padStart(2, '0')}${suffix}`;
+}
+
+// Context menu state
+let contextMenuTimer = null;
+
+function showContextMenu(x, y, timerName) {
+  const menu = document.getElementById('context-menu');
+  contextMenuTimer = timerName;
+
+  menu.style.display = 'block';
+  menu.style.left = `${x}px`;
+  menu.style.top = `${y}px`;
+
+  // Adjust if menu goes off right edge
+  const menuRect = menu.getBoundingClientRect();
+  if (menuRect.right > window.innerWidth) {
+    menu.style.left = `${window.innerWidth - menuRect.width - 4}px`;
+  }
+  // Adjust if menu goes off bottom edge
+  if (menuRect.bottom > window.innerHeight) {
+    menu.style.top = `${window.innerHeight - menuRect.height - 4}px`;
+  }
+}
+
+function hideContextMenu() {
+  const menu = document.getElementById('context-menu');
+  menu.style.display = 'none';
+  contextMenuTimer = null;
+}
+
+// Hide context menu on any click
+document.addEventListener('click', () => {
+  hideContextMenu();
+});
+
+// Context menu actions
+document.getElementById('context-menu-rename').addEventListener('click', () => {
+  if (!contextMenuTimer) return;
+  const timerName = contextMenuTimer;
+  hideContextMenu();
+  startInlineRename(timerName);
+});
+
+document.getElementById('context-menu-delete').addEventListener('click', async () => {
+  if (!contextMenuTimer) return;
+  const timerName = contextMenuTimer;
+  hideContextMenu();
+  try {
+    await window.timerAPI.deleteTimer(timerName);
+  } catch (err) {
+    console.error('Failed to delete timer:', err);
+  }
+});
+
+function startInlineRename(timerName) {
+  const timerItem = timerList.querySelector(`.timer-item[data-timer="${timerName}"]`);
+  if (!timerItem) return;
+
+  const nameEl = timerItem.querySelector('.timer-name');
+  const orderBadge = nameEl.querySelector('.timer-order');
+  const currentText = nameEl.textContent.replace(orderBadge?.textContent || '', '').trim();
+
+  // Override overflow so input is visible
+  nameEl.classList.add('renaming');
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'timer-name-input';
+  input.value = currentText;
+
+  nameEl.textContent = '';
+  if (orderBadge) nameEl.appendChild(orderBadge);
+  nameEl.appendChild(input);
+  input.focus();
+  input.select();
+
+  function restoreName() {
+    nameEl.classList.remove('renaming');
+    nameEl.textContent = '';
+    if (orderBadge) nameEl.appendChild(orderBadge);
+    nameEl.appendChild(document.createTextNode(currentText));
+  }
+
+  let committed = false;
+  async function commitRename() {
+    if (committed) return;
+    committed = true;
+    const newName = input.value.trim();
+    if (newName && newName !== currentText) {
+      try {
+        await window.timerAPI.renameTimer(timerName, newName);
+      } catch (err) {
+        console.error('Failed to rename timer:', err);
+        restoreName();
+      }
+    } else {
+      restoreName();
+    }
+  }
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      input.blur();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      committed = true;
+      restoreName();
+      input.remove();
+    }
+  });
+
+  input.addEventListener('blur', commitRename);
+}
+
+// Drag and drop state
+let draggedElement = null;
+
 // Render timer list
-function renderTimers(timers, runningTimer) {
+function renderTimers(timers) {
   // Store current state for live updates
   currentTimers = timers || [];
-  currentRunningTimer = runningTimer;
+  currentRunningTimers = currentTimers.filter(t => t.isRunning).map(t => t.name);
 
   if (!timers || timers.length === 0) {
     timerList.innerHTML = `
       <div class="empty-state">
         <p>No timers yet</p>
-        <p>Type a name above and press Enter to start</p>
+        <p>Click "Add Timer" below to start</p>
       </div>
     `;
     stopLiveUpdate();
@@ -90,10 +267,11 @@ function renderTimers(timers, runningTimer) {
   }
 
   timerList.innerHTML = timers.map((timer, index) => {
-    const isRunning = runningTimer === timer.name;
+    const isRunning = timer.isRunning;
     const orderNumber = index + 1;
     return `
-      <div class="timer-item ${isRunning ? 'running' : ''}" data-timer="${timer.name}">
+      <div class="timer-item ${isRunning ? 'running' : ''}" data-timer="${timer.name}" draggable="true">
+        <span class="drag-handle">⋮⋮</span>
         <div class="timer-info">
           <div class="timer-name"><span class="timer-order">${orderNumber}</span>${escapeHtml(timer.displayName || timer.name)}</div>
           <div class="timer-time" data-base-elapsed="${timer.elapsedToday}">${formatTime(timer.elapsedToday)}</div>
@@ -124,8 +302,21 @@ function renderTimers(timers, runningTimer) {
     });
   });
 
-  // Start or stop live update based on whether a timer is running
-  if (runningTimer) {
+  // Add drag and drop handlers + context menu
+  timerList.querySelectorAll('.timer-item').forEach(item => {
+    item.addEventListener('dragstart', handleDragStart);
+    item.addEventListener('dragend', handleDragEnd);
+    item.addEventListener('dragover', handleDragOver);
+    item.addEventListener('dragleave', handleDragLeave);
+    item.addEventListener('drop', handleDrop);
+    item.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      showContextMenu(e.clientX, e.clientY, item.dataset.timer);
+    });
+  });
+
+  // Start or stop live update based on whether any timer is running
+  if (currentRunningTimers.length > 0) {
     startLiveUpdate();
   } else {
     stopLiveUpdate();
@@ -133,6 +324,73 @@ function renderTimers(timers, runningTimer) {
 
   // Update timer hotkeys in settings if visible
   updateTimerHotkeysIfNeeded();
+}
+
+// Drag and drop handlers
+function handleDragStart(e) {
+  draggedElement = e.target.closest('.timer-item');
+  draggedElement.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', draggedElement.dataset.timer);
+}
+
+function handleDragEnd(e) {
+  if (draggedElement) {
+    draggedElement.classList.remove('dragging');
+  }
+  timerList.querySelectorAll('.timer-item').forEach(item => {
+    item.classList.remove('drag-over');
+  });
+  draggedElement = null;
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const targetItem = e.target.closest('.timer-item');
+  if (targetItem && targetItem !== draggedElement) {
+    timerList.querySelectorAll('.timer-item').forEach(item => {
+      item.classList.remove('drag-over');
+    });
+    targetItem.classList.add('drag-over');
+  }
+}
+
+function handleDragLeave(e) {
+  const targetItem = e.target.closest('.timer-item');
+  if (targetItem) {
+    targetItem.classList.remove('drag-over');
+  }
+}
+
+async function handleDrop(e) {
+  e.preventDefault();
+  const targetItem = e.target.closest('.timer-item');
+
+  if (targetItem && draggedElement && targetItem !== draggedElement) {
+    // Reorder in DOM
+    const items = [...timerList.querySelectorAll('.timer-item')];
+    const draggedIndex = items.indexOf(draggedElement);
+    const targetIndex = items.indexOf(targetItem);
+
+    if (draggedIndex < targetIndex) {
+      targetItem.parentNode.insertBefore(draggedElement, targetItem.nextSibling);
+    } else {
+      targetItem.parentNode.insertBefore(draggedElement, targetItem);
+    }
+
+    // Extract new order and persist
+    const newOrder = [...timerList.querySelectorAll('.timer-item')].map(item => item.dataset.timer);
+    try {
+      await window.timerAPI.updateTimerOrder(newOrder);
+    } catch (err) {
+      console.error('Failed to save timer order:', err);
+    }
+  }
+
+  timerList.querySelectorAll('.timer-item').forEach(item => {
+    item.classList.remove('drag-over');
+  });
 }
 
 // Update timer hotkeys section if it exists and timers have changed
@@ -179,19 +437,33 @@ function stopLiveUpdate() {
 }
 
 function updateRunningTimerDisplay() {
-  if (!currentRunningTimer || !liveUpdateStartTime) {
+  if (currentRunningTimers.length === 0 || !liveUpdateStartTime) {
     return;
   }
 
   const elapsed = Date.now() - liveUpdateStartTime;
 
-  // Find the running timer element and update its display
-  const runningTimerItem = timerList.querySelector(`.timer-item[data-timer="${currentRunningTimer}"]`);
-  if (runningTimerItem) {
-    const timeEl = runningTimerItem.querySelector('.timer-time');
-    if (timeEl) {
-      const baseElapsed = parseInt(timeEl.dataset.baseElapsed, 10) || 0;
-      timeEl.textContent = formatTime(baseElapsed + elapsed);
+  // Update all running timer elements
+  for (const timerName of currentRunningTimers) {
+    const timerItem = timerList.querySelector(`.timer-item[data-timer="${timerName}"]`);
+    if (timerItem) {
+      const timeEl = timerItem.querySelector('.timer-time');
+      if (timeEl) {
+        const baseElapsed = parseInt(timeEl.dataset.baseElapsed, 10) || 0;
+        timeEl.textContent = formatTime(baseElapsed + elapsed);
+      }
+    }
+  }
+
+  // Also update per-timer stats in metrics tab
+  const perTimerStats = document.getElementById('per-timer-stats');
+  if (perTimerStats) {
+    for (const timerName of currentRunningTimers) {
+      const todayEl = perTimerStats.querySelector(`.per-timer-today[data-timer="${timerName}"]`);
+      if (todayEl) {
+        const baseElapsed = parseInt(todayEl.dataset.baseElapsed, 10) || 0;
+        todayEl.textContent = formatDuration(baseElapsed + elapsed);
+      }
     }
   }
 
@@ -203,7 +475,8 @@ function updateTotalTimeDisplay(additionalElapsed) {
   const totalTimeEl = document.getElementById('total-time');
   if (totalTimeEl && totalTimeEl.dataset.baseTotal !== undefined) {
     const baseTotal = parseInt(totalTimeEl.dataset.baseTotal, 10) || 0;
-    totalTimeEl.textContent = formatTime(baseTotal + additionalElapsed);
+    // Each running timer contributes additionalElapsed to the total
+    totalTimeEl.textContent = formatTime(baseTotal + additionalElapsed * currentRunningTimers.length);
   }
 }
 
@@ -230,17 +503,50 @@ function updateMetrics(data) {
       weeklyTrendEl.className = 'metric-trend';
     }
   }
+
+  // Render per-timer stats
+  const perTimerStats = document.getElementById('per-timer-stats');
+  if (data.timers) {
+    const relevant = data.timers.filter(t => t.elapsedToday > 0 || t.weeklyTotal > 0);
+    if (relevant.length > 0) {
+      perTimerStats.className = 'per-timer-stats';
+      perTimerStats.innerHTML = relevant.map(timer => {
+        let trendHtml = '';
+        if (timer.weeklyTrend > 0) {
+          trendHtml = `<span class="per-timer-trend up">+${timer.weeklyTrend}%</span>`;
+        } else if (timer.weeklyTrend < 0) {
+          trendHtml = `<span class="per-timer-trend down">${timer.weeklyTrend}%</span>`;
+        } else {
+          trendHtml = `<span class="per-timer-trend">0%</span>`;
+        }
+        return `
+          <div class="per-timer-row">
+            <span class="per-timer-name">${escapeHtml(timer.displayName || timer.name)}</span>
+            <span class="per-timer-today" data-timer="${timer.name}" data-base-elapsed="${timer.elapsedToday}">${formatDuration(timer.elapsedToday)}</span>
+            <span class="per-timer-weekly">${formatDuration(timer.weeklyTotal)} this wk</span>
+            ${trendHtml}
+          </div>
+        `;
+      }).join('');
+    } else {
+      perTimerStats.className = '';
+      perTimerStats.innerHTML = '';
+    }
+  }
 }
 
 // Render timeline bar with color-coded segments
 async function renderTimeline() {
   const timelineBar = document.getElementById('timeline-bar');
 
+  const timelineTimes = document.getElementById('timeline-times');
+
   try {
     const timeline = await window.timerAPI.getTimeline();
 
     if (!timeline.segments || timeline.segments.length === 0) {
       timelineBar.innerHTML = '';
+      if (timelineTimes) timelineTimes.innerHTML = '';
       return;
     }
 
@@ -275,6 +581,11 @@ async function renderTimeline() {
 
     timelineBar.style.position = 'relative';
     timelineBar.innerHTML = segmentsHtml + nowIndicator;
+
+    // Render time labels
+    if (timelineTimes) {
+      timelineTimes.innerHTML = `<span>${formatCompactHour(timeline.dayStart)}</span><span>${formatCompactHour(timeline.dayEnd)}</span>`;
+    }
   } catch (err) {
     console.error('Failed to render timeline:', err);
   }
@@ -293,7 +604,9 @@ async function initSettings() {
       const minute = String(settings.dayStartMinute ?? 0).padStart(2, '0');
       document.getElementById('day-start').value = `${hour}:${minute}`;
 
-      document.getElementById('pause-all-hotkey').value = settings.hotkeys?.pauseAll ?? '';
+      const pauseAllRaw = settings.hotkeys?.pauseAll ?? '';
+      document.getElementById('pause-all-hotkey').value = formatHotkey(pauseAllRaw);
+      document.getElementById('pause-all-hotkey').dataset.hotkey = pauseAllRaw;
 
       // Render per-timer hotkeys
       renderTimerHotkeys(settings.hotkeys?.timers ?? {});
@@ -324,7 +637,7 @@ function renderTimerHotkeys(timerHotkeys) {
           <div class="setting-description">Start/pause this timer</div>
         </div>
         <div class="hotkey-input-container">
-          <input type="text" class="hotkey-input timer-hotkey-input" data-timer="${timer.name}" readonly placeholder="Click to set" value="${escapeHtml(hotkey)}">
+          <input type="text" class="hotkey-input timer-hotkey-input" data-timer="${timer.name}" data-hotkey="${escapeHtml(hotkey)}" readonly placeholder="Click to set" value="${escapeHtml(formatHotkey(hotkey))}">
           <button class="hotkey-clear timer-hotkey-clear" data-timer="${timer.name}" title="Clear hotkey">&times;</button>
         </div>
       </div>
@@ -345,13 +658,25 @@ function renderTimerHotkeys(timerHotkeys) {
     btn.addEventListener('click', async () => {
       const timerName = btn.dataset.timer;
       const input = container.querySelector(`.timer-hotkey-input[data-timer="${timerName}"]`);
-      if (input) input.value = '';
+      if (input) {
+        input.value = '';
+        input.dataset.hotkey = '';
+      }
       const settings = await window.timerAPI.getSettings();
       const timers = { ...(settings.hotkeys?.timers ?? {}) };
       delete timers[timerName];
       await window.timerAPI.updateSettings({ hotkeys: { ...settings.hotkeys, timers } });
     });
   });
+}
+
+// Format hotkey for display (⌘ on macOS, Ctrl+ on others)
+function formatHotkey(accelerator) {
+  if (!accelerator) return '';
+  if (window.timerAPI.platform === 'darwin') {
+    return accelerator.replace(/CmdOrCtrl\+/g, '⌘');
+  }
+  return accelerator.replace(/CmdOrCtrl\+/g, 'Ctrl+');
 }
 
 // Convert key event to Electron accelerator format
@@ -416,8 +741,9 @@ function setupHotkeyInput(input, onSave) {
 
     const accelerator = keyEventToAccelerator(e);
     if (accelerator) {
-      input.value = accelerator;
-      input.dataset.previousValue = accelerator;
+      input.value = formatHotkey(accelerator);
+      input.dataset.previousValue = formatHotkey(accelerator);
+      input.dataset.hotkey = accelerator;
       input.classList.remove('recording');
       input.blur();
       await onSave(accelerator);
@@ -440,6 +766,7 @@ setupHotkeyInput(pauseAllHotkeyInput, async (hotkey) => {
 document.getElementById('pause-all-clear').addEventListener('click', async () => {
   pauseAllHotkeyInput.value = '';
   pauseAllHotkeyInput.dataset.previousValue = '';
+  pauseAllHotkeyInput.dataset.hotkey = '';
   const settings = await window.timerAPI.getSettings();
   await window.timerAPI.updateSettings({
     hotkeys: { ...settings.hotkeys, pauseAll: '' }
@@ -525,7 +852,7 @@ document.getElementById('import-btn').addEventListener('click', async () => {
       // Refresh the UI
       await initSettings();
       const state = await window.timerAPI.getState();
-      renderTimers(state.timers, state.runningTimer);
+      renderTimers(state.timers);
       updateMetrics(state);
       await renderTimeline();
     } else if (result.error) {
@@ -546,7 +873,7 @@ window.timerAPI.onTimerUpdate((data) => {
   // Stop current live update and reset timing
   stopLiveUpdate();
 
-  renderTimers(data.timers, data.runningTimer);
+  renderTimers(data.timers);
   updateMetrics(data);
   renderTimeline();
 });
@@ -557,7 +884,7 @@ async function init() {
 
   try {
     const state = await window.timerAPI.getState();
-    renderTimers(state.timers, state.runningTimer);
+    renderTimers(state.timers);
     updateMetrics(state);
     await renderTimeline();
   } catch (err) {
