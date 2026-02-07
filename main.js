@@ -475,6 +475,113 @@ function computeTimerState() {
 }
 
 // ========================================
+// Timeline Data
+// ========================================
+
+// Color palette for timers (deterministic based on order of first appearance)
+const TIMER_COLORS = [
+  '#4a9eff', // blue
+  '#4ade80', // green
+  '#f472b6', // pink
+  '#fbbf24', // amber
+  '#a78bfa', // purple
+  '#22d3d3', // cyan
+  '#fb923c', // orange
+  '#f87171', // red
+];
+
+function getTimerColor(timerName, timerOrder) {
+  const index = timerOrder.indexOf(timerName);
+  if (index === -1) return TIMER_COLORS[0];
+  return TIMER_COLORS[index % TIMER_COLORS.length];
+}
+
+function getTodayTimeline() {
+  const events = loadEvents();
+  const now = Date.now();
+  const todayStart = getDayStart().getTime();
+  const todayEnd = getDayEnd(getDayStart()).getTime();
+
+  // Build timer intervals
+  const timerIntervals = new Map();
+  const activeTimers = new Map();
+  const timerOrder = []; // Track order of first appearance
+
+  for (const event of events) {
+    const ts = event.ts;
+    const timer = event.timer;
+
+    if (event.event === 'start') {
+      activeTimers.set(timer, ts);
+      if (timer && !timerOrder.includes(timer)) {
+        timerOrder.push(timer);
+      }
+    } else if (event.event === 'pause') {
+      if (activeTimers.has(timer)) {
+        const startTs = activeTimers.get(timer);
+        if (!timerIntervals.has(timer)) {
+          timerIntervals.set(timer, []);
+        }
+        timerIntervals.get(timer).push({ start: startTs, end: ts });
+        activeTimers.delete(timer);
+      }
+    } else if (event.event === 'pause_all') {
+      for (const [t, startTs] of activeTimers) {
+        if (!timerIntervals.has(t)) {
+          timerIntervals.set(t, []);
+        }
+        timerIntervals.get(t).push({ start: startTs, end: ts });
+      }
+      activeTimers.clear();
+    }
+  }
+
+  // Collect today's segments (clipped to day boundaries)
+  const segments = [];
+
+  for (const [timerName, intervals] of timerIntervals) {
+    for (const interval of intervals) {
+      const overlapStart = Math.max(interval.start, todayStart);
+      const overlapEnd = Math.min(interval.end, todayEnd);
+      if (overlapStart < overlapEnd) {
+        segments.push({
+          timer: timerName,
+          displayName: timerDisplayNames.get(timerName) || timerName,
+          start: overlapStart,
+          end: overlapEnd,
+          color: getTimerColor(timerName, timerOrder)
+        });
+      }
+    }
+  }
+
+  // Add active timer segments up to now
+  for (const [timerName, startTs] of activeTimers) {
+    const overlapStart = Math.max(startTs, todayStart);
+    const overlapEnd = Math.min(now, todayEnd);
+    if (overlapStart < overlapEnd) {
+      segments.push({
+        timer: timerName,
+        displayName: timerDisplayNames.get(timerName) || timerName,
+        start: overlapStart,
+        end: overlapEnd,
+        color: getTimerColor(timerName, timerOrder)
+      });
+    }
+  }
+
+  // Sort by start time
+  segments.sort((a, b) => a.start - b.start);
+
+  return {
+    dayStart: todayStart,
+    dayEnd: todayEnd,
+    segments,
+    timerColors: Object.fromEntries(timerOrder.map((t, i) => [t, TIMER_COLORS[i % TIMER_COLORS.length]]))
+  };
+}
+
+// ========================================
 // Timer Actions
 // ========================================
 
@@ -545,6 +652,10 @@ ipcMain.handle('timer:getRunning', () => {
 
 ipcMain.handle('timer:getState', () => {
   return computeTimerState();
+});
+
+ipcMain.handle('timer:getTimeline', () => {
+  return getTodayTimeline();
 });
 
 ipcMain.handle('settings:get', () => {

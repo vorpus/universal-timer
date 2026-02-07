@@ -41,9 +41,9 @@
 
 - [x] Display total time spent today across all timers
 - [x] Calculate and display weekly trend percentage
-- [ ] Implement timeline bar with color-coded timer segments
-- [ ] Handle overlapping timers in timeline (stacked segments)
-- [ ] Assign consistent colors to timers from palette
+- [x] Implement timeline bar with color-coded timer segments
+- [x] Handle overlapping timers in timeline (stacked segments)
+- [x] Assign consistent colors to timers from palette
 
 ### Phase 5.5: Code quality - typescript refactor
 

@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('timerAPI', {
   getTimers: () => ipcRenderer.invoke('timer:getAll'),
   getRunningTimer: () => ipcRenderer.invoke('timer:getRunning'),
   getState: () => ipcRenderer.invoke('timer:getState'),
+  getTimeline: () => ipcRenderer.invoke('timer:getTimeline'),
 
   // Settings
   getSettings: () => ipcRenderer.invoke('settings:get'),

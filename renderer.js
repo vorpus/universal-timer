@@ -196,6 +196,54 @@ function updateMetrics(data) {
   }
 }
 
+// Render timeline bar with color-coded segments
+async function renderTimeline() {
+  const timelineBar = document.getElementById('timeline-bar');
+
+  try {
+    const timeline = await window.timerAPI.getTimeline();
+
+    if (!timeline.segments || timeline.segments.length === 0) {
+      timelineBar.innerHTML = '';
+      return;
+    }
+
+    const dayDuration = timeline.dayEnd - timeline.dayStart;
+    const now = Date.now();
+    const currentDayProgress = Math.min(now - timeline.dayStart, dayDuration);
+
+    // Build timeline segments as percentage of day progress so far
+    // This shows the timeline relative to how much of the day has passed
+    const segmentsHtml = timeline.segments.map(segment => {
+      // Calculate position and width relative to the full day
+      const startPercent = ((segment.start - timeline.dayStart) / dayDuration) * 100;
+      const widthPercent = ((segment.end - segment.start) / dayDuration) * 100;
+
+      return `<div class="timeline-segment" style="
+        position: absolute;
+        left: ${startPercent}%;
+        width: ${widthPercent}%;
+        background: ${segment.color};
+      " title="${escapeHtml(segment.displayName)}"></div>`;
+    }).join('');
+
+    // Show current time indicator
+    const nowPercent = (currentDayProgress / dayDuration) * 100;
+    const nowIndicator = `<div style="
+      position: absolute;
+      left: ${nowPercent}%;
+      width: 2px;
+      height: 100%;
+      background: rgba(255,255,255,0.5);
+    "></div>`;
+
+    timelineBar.style.position = 'relative';
+    timelineBar.innerHTML = segmentsHtml + nowIndicator;
+  } catch (err) {
+    console.error('Failed to render timeline:', err);
+  }
+}
+
 // Initialize settings UI
 async function initSettings() {
   try {
@@ -248,6 +296,7 @@ window.timerAPI.onTimerUpdate((data) => {
 
   renderTimers(data.timers, data.runningTimer);
   updateMetrics(data);
+  renderTimeline();
 });
 
 // Initial load
@@ -258,6 +307,7 @@ async function init() {
     const state = await window.timerAPI.getState();
     renderTimers(state.timers, state.runningTimer);
     updateMetrics(state);
+    await renderTimeline();
   } catch (err) {
     console.error('Failed to load timers:', err);
   }
