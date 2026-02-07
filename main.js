@@ -277,6 +277,107 @@ function getDayEnd(dayStart) {
 }
 
 // ========================================
+// Weekly Trend Calculation
+// ========================================
+
+function calculateTotalForDay(events, dayStart, dayEnd, activeTimers, now) {
+  // Build intervals from events
+  const timerIntervals = new Map();
+  const tempActiveTimers = new Map();
+
+  for (const event of events) {
+    const ts = event.ts;
+    const timer = event.timer;
+
+    if (event.event === 'start') {
+      tempActiveTimers.set(timer, ts);
+    } else if (event.event === 'pause') {
+      if (tempActiveTimers.has(timer)) {
+        const startTs = tempActiveTimers.get(timer);
+        if (!timerIntervals.has(timer)) {
+          timerIntervals.set(timer, []);
+        }
+        timerIntervals.get(timer).push({ start: startTs, end: ts });
+        tempActiveTimers.delete(timer);
+      }
+    } else if (event.event === 'pause_all') {
+      for (const [t, startTs] of tempActiveTimers) {
+        if (!timerIntervals.has(t)) {
+          timerIntervals.set(t, []);
+        }
+        timerIntervals.get(t).push({ start: startTs, end: ts });
+      }
+      tempActiveTimers.clear();
+    }
+  }
+
+  let total = 0;
+  const dayStartTs = dayStart.getTime();
+  const dayEndTs = dayEnd.getTime();
+
+  // Sum completed intervals that overlap with this day
+  for (const intervals of timerIntervals.values()) {
+    for (const interval of intervals) {
+      const overlapStart = Math.max(interval.start, dayStartTs);
+      const overlapEnd = Math.min(interval.end, dayEndTs);
+      if (overlapStart < overlapEnd) {
+        total += overlapEnd - overlapStart;
+      }
+    }
+  }
+
+  // Add time from currently active timers (only for today)
+  if (activeTimers && now) {
+    for (const [timerName, startTs] of activeTimers) {
+      const overlapStart = Math.max(startTs, dayStartTs);
+      const overlapEnd = Math.min(now, dayEndTs);
+      if (overlapStart < overlapEnd) {
+        total += overlapEnd - overlapStart;
+      }
+    }
+  }
+
+  return total;
+}
+
+function calculateWeeklyTrend(events, todayTotal, activeTimers, now) {
+  const today = getDayStart();
+
+  // Get the start of the week (Monday as first day)
+  const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+
+  // If today is Monday, there's no previous week data to compare
+  if (daysFromMonday === 0) {
+    return 0;
+  }
+
+  // Calculate totals for each previous day this week
+  const previousDayTotals = [];
+  for (let i = 1; i <= daysFromMonday; i++) {
+    const dayStart = new Date(today);
+    dayStart.setDate(dayStart.getDate() - i);
+    const dayEnd = getDayEnd(dayStart);
+
+    const dayTotal = calculateTotalForDay(events, dayStart, dayEnd, null, null);
+    previousDayTotals.push(dayTotal);
+  }
+
+  // Calculate average of previous days
+  const previousSum = previousDayTotals.reduce((sum, t) => sum + t, 0);
+  const previousAvg = previousSum / previousDayTotals.length;
+
+  // If no previous data, return 0
+  if (previousAvg === 0) {
+    return todayTotal > 0 ? 100 : 0;
+  }
+
+  // Calculate percentage difference
+  const trend = Math.round(((todayTotal - previousAvg) / previousAvg) * 100);
+  return trend;
+}
+
+// ========================================
 // Timer State Computation
 // ========================================
 
@@ -362,11 +463,14 @@ function computeTimerState() {
   // Calculate total today
   const totalToday = timers.reduce((sum, t) => sum + t.elapsedToday, 0);
 
+  // Calculate weekly trend
+  const weeklyTrend = calculateWeeklyTrend(events, totalToday, activeTimers, now);
+
   return {
     timers,
     runningTimer: currentRunning,
     totalToday,
-    weeklyTrend: 0 // TODO: Implement weekly trend calculation
+    weeklyTrend
   };
 }
 

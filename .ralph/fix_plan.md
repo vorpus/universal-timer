@@ -40,7 +40,7 @@
 ### Phase 5: UI - Metrics Tab
 
 - [x] Display total time spent today across all timers
-- [ ] Calculate and display weekly trend percentage
+- [x] Calculate and display weekly trend percentage
 - [ ] Implement timeline bar with color-coded timer segments
 - [ ] Handle overlapping timers in timeline (stacked segments)
 - [ ] Assign consistent colors to timers from palette
