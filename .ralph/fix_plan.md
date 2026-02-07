@@ -80,8 +80,8 @@
 - [x] Create placeholder tray icons (idle + per-timer variants)
 - [x] Implement tray icon switching based on running timer
 - [x] Add background indicator to tray when timer is active
-- [ ] Implement optional sound effects on timer start/pause
-- [ ] Add placeholder .wav files for sounds
+- [x] Implement optional sound effects on timer start/pause
+- [x] Add placeholder .wav files for sounds
 
 ### Phase 9: Edge Cases & Robustness
 

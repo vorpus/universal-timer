@@ -37,6 +37,34 @@ function updateTrayIcon(isActive) {
   }
 }
 
+// ========================================
+// Sound Effects
+// ========================================
+
+function playSound(soundType) {
+  if (!settings.playSounds) {
+    return;
+  }
+
+  const soundFile = soundType === 'start' ? 'sound-start.wav' : 'sound-pause.wav';
+  const soundPath = path.join(__dirname, 'assets', soundFile);
+
+  // Check if sound file exists before trying to play
+  if (!fs.existsSync(soundPath)) {
+    return;
+  }
+
+  // Use Electron shell to play sound or spawn afplay on macOS
+  if (process.platform === 'darwin') {
+    const { exec } = require('child_process');
+    exec(`afplay "${soundPath}"`, (err) => {
+      if (err) {
+        console.error('Failed to play sound:', err);
+      }
+    });
+  }
+}
+
 function createTray() {
   tray = new Tray(createTrayIcon(false));
   tray.setToolTip('Time Tracker');
@@ -669,6 +697,7 @@ function startTimer(timerName) {
   }
 
   appendEvent({ ts: now, event: 'start', timer: normalized });
+  playSound('start');
   notifyRenderer();
 }
 
@@ -676,12 +705,14 @@ function pauseTimer(timerName) {
   const normalized = normalizeTimerName(timerName);
   const now = Date.now();
   appendEvent({ ts: now, event: 'pause', timer: normalized });
+  playSound('pause');
   notifyRenderer();
 }
 
 function pauseAll() {
   const now = Date.now();
   appendEvent({ ts: now, event: 'pause_all' });
+  playSound('pause');
   notifyRenderer();
 }
 
