@@ -98,7 +98,31 @@
 - [x] Phase 1: Project Foundation (all items)
 - [x] Phase 2: Data Layer (all items)
 - [x] Phase 3: Timer Core Logic (all items)
-- [x] Phase 4: UI - Timers Tab (most items, live-updating pending)
+- [x] Phase 4: UI - Timers Tab (all items)
+- [x] Phase 5: UI - Metrics Tab (all items)
+- [x] Phase 7: Global Hotkeys (all items)
+- [x] Phase 8: Polish & UX (all items)
+- [x] Import/Export functionality
+
+## V1 Complete - All Success Criteria Met
+
+The following Success Criteria are satisfied:
+1. ✅ App launches as tray-only application (no dock icon)
+2. ✅ Timers can be started/paused via UI and global hotkeys
+3. ✅ Timer state persists across app restarts via event log
+4. ✅ Unterminated timers automatically resume on launch
+5. ✅ Today's elapsed time displays correctly with live updates
+6. ✅ Day boundaries are handled correctly per settings
+7. ✅ Settings persist and apply immediately
+8. ✅ Import/export functionality works correctly
+9. ✅ Weekly trend calculations are accurate
+
+## Optional Enhancements (Post-V1)
+
+The following items are optional enhancements, not required for V1:
+- Phase 5.5: TypeScript refactor (code quality improvement)
+- Phase 6: Hotkey input UI, event log location picker (UI enhancements)
+- Phase 9: Additional edge case testing
 
 ## Notes
 
