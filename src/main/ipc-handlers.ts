@@ -252,9 +252,8 @@ export function registerIpcHandlers(): void {
       const newPath = path.join(result.filePaths[0], 'events.jsonl')
       const oldPath = getEventsPath()
 
-      if (fs.existsSync(oldPath) && oldPath !== newPath) {
-        const existingData = fs.readFileSync(oldPath, 'utf8')
-        fs.writeFileSync(newPath, existingData)
+      if (oldPath !== newPath && fs.existsSync(oldPath)) {
+        fs.copyFileSync(oldPath, newPath)
       }
 
       settings.eventLogPath = newPath
