@@ -3,7 +3,8 @@ import path from 'path'
 import fs from 'fs'
 
 import type { Settings, ExportData, OperationResult } from '../shared/types'
-import { getMainWindow } from './app-state'
+import { getMainWindow, isPinned, setPinned } from './app-state'
+import { adjustWindowForPin, rebuildContextMenu, notifyPinState } from './window-actions'
 import {
   settings,
   DEFAULT_SETTINGS,
@@ -270,6 +271,22 @@ export function registerIpcHandlers(): void {
     settings.eventLogPath = null
     saveSettings()
     return { success: true, path: getEventsPath() } as OperationResult
+  })
+
+  // ========================================
+  // Window Pin
+  // ========================================
+
+  ipcMain.handle('window:togglePin', () => {
+    setPinned(!isPinned())
+    adjustWindowForPin(isPinned())
+    rebuildContextMenu()
+    notifyPinState()
+    return isPinned()
+  })
+
+  ipcMain.handle('window:getPinned', () => {
+    return isPinned()
   })
 
   // ========================================

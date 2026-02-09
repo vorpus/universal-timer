@@ -154,6 +154,12 @@ export interface TimerAPI {
   onSettingsUpdate: (callback: (data: Settings) => void) => void
   onError: (callback: (data: AppError) => void) => void
 
+  // Window pin
+  togglePin: () => Promise<boolean>
+  getPinned: () => Promise<boolean>
+  onPinUpdate: (callback: (pinned: boolean) => void) => void
+  removePinListener: () => void
+
   // Remove listeners
   removeTimerListener: () => void
   removeSettingsListener: () => void

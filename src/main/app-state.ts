@@ -10,3 +10,7 @@ export function setMainWindow(w: BrowserWindow | null): void { mainWindow = w }
 
 export function getTray(): Tray | null { return tray }
 export function setTray(t: Tray | null): void { tray = t }
+
+let pinned = false
+export function isPinned(): boolean { return pinned }
+export function setPinned(v: boolean): void { pinned = v }
