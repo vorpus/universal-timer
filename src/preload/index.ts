@@ -31,6 +31,16 @@ const api: TimerAPI = {
   // Platform info
   platform: process.platform,
 
+  // Window pin
+  togglePin: () => ipcRenderer.invoke('window:togglePin'),
+  getPinned: () => ipcRenderer.invoke('window:getPinned'),
+  onPinUpdate: (callback: (pinned: boolean) => void) => {
+    ipcRenderer.on('window:pinUpdated', (_event, pinned: boolean) => callback(pinned))
+  },
+  removePinListener: () => {
+    ipcRenderer.removeAllListeners('window:pinUpdated')
+  },
+
   // App control
   quitApp: () => ipcRenderer.invoke('app:quit'),
 

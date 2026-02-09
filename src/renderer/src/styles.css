@@ -20,6 +20,22 @@ body {
   height: 100%;
 }
 
+.drag-bar {
+  height: 0;
+  -webkit-app-region: drag;
+  background: #333;
+  background-image: radial-gradient(circle, #555 1px, transparent 1px);
+  background-size: 12px 8px;
+  background-position: center;
+  cursor: move;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.container.pinned .drag-bar {
+  height: 14px;
+}
+
 /* Tab navigation */
 .tabs {
   display: flex;
@@ -39,7 +55,30 @@ body {
   border: none;
   background: transparent;
   transition: color 0.2s, background 0.2s;
+  -webkit-app-region: no-drag;
 }
+
+.pin-btn {
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+  flex-shrink: 0;
+}
+.pin-btn:focus { outline: none; }
+
+.pin-icon {
+  width: 16px;
+  height: 16px;
+  display: block;
+  fill: #e0e0e0;
+}
+
+.pin-icon-active { display: none; }
+.pin-icon-inactive { opacity: 0.8; }
+.pin-btn.active .pin-icon-active { display: block; }
+.pin-btn.active .pin-icon-inactive { display: none; }
 
 .tab:hover {
   color: #aaa;

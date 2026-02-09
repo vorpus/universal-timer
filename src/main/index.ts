@@ -1,11 +1,12 @@
-import { app, BrowserWindow, Tray, Menu, globalShortcut, screen } from 'electron'
+import { app, BrowserWindow, Tray, globalShortcut, screen } from 'electron'
 import path from 'path'
 
-import { setMainWindow, setTray } from './app-state'
+import { setMainWindow, setTray, isPinned } from './app-state'
 import { loadSettings, loadEvents, normalizeTimerName, timerDisplayNames } from './storage'
 import { computeTimerState, getTrayIconIndex } from './timer-state'
 import { createTrayIcon, updateTrayIcon, registerGlobalHotkeys } from './timer-actions'
 import { registerIpcHandlers } from './ipc-handlers'
+import { rebuildContextMenu, popUpContextMenu } from './window-actions'
 
 declare module 'electron' {
   interface App {
@@ -48,7 +49,7 @@ function createWindow(): void {
   }
 
   mainWindow.on('blur', () => {
-    if (!mainWindow!.webContents.isDevToolsOpened()) {
+    if (!mainWindow!.webContents.isDevToolsOpened() && !isPinned()) {
       mainWindow!.hide()
     }
   })
@@ -85,7 +86,11 @@ function positionWindow(trayBounds: Electron.Rectangle): void {
 
 function toggleWindow(trayBounds: Electron.Rectangle): void {
   if (mainWindow!.isVisible()) {
-    mainWindow!.hide()
+    if (isPinned()) {
+      mainWindow!.focus()
+    } else {
+      mainWindow!.hide()
+    }
   } else {
     positionWindow(trayBounds)
     mainWindow!.show()
@@ -106,11 +111,9 @@ function createTray(): void {
     toggleWindow(bounds)
   })
 
-  const contextMenu = Menu.buildFromTemplate([
-    { label: 'Quit', click: () => app.quit() }
-  ])
+  rebuildContextMenu()
   tray.on('right-click', () => {
-    tray!.popUpContextMenu(contextMenu)
+    popUpContextMenu()
   })
 }
 

@@ -27,6 +27,28 @@ window.timerAPI.onError((data: AppError) => {
 });
 
 // ========================================
+// Pin Button
+// ========================================
+
+const pinBtn = document.getElementById('pin-btn')!;
+const appContainer = document.querySelector('.container')!;
+
+function updatePinButton(pinned: boolean): void {
+  pinBtn.classList.toggle('active', pinned);
+  appContainer.classList.toggle('pinned', pinned);
+  pinBtn.title = pinned ? 'Unpin window' : 'Pin window';
+}
+
+pinBtn.addEventListener('click', async () => {
+  const pinned = await window.timerAPI.togglePin();
+  updatePinButton(pinned);
+});
+
+window.timerAPI.onPinUpdate((pinned: boolean) => {
+  updatePinButton(pinned);
+});
+
+// ========================================
 // Tab Switching
 // ========================================
 
