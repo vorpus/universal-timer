@@ -4,7 +4,7 @@ import path from 'path'
 import { setMainWindow, setTray, isPinned } from './app-state'
 import { loadSettings, loadEvents, normalizeTimerName, timerDisplayNames } from './storage'
 import { computeTimerState, getTrayIconIndex } from './timer-state'
-import { createTrayIcon, updateTrayIcon, registerGlobalHotkeys } from './timer-actions'
+import { createTrayIcon, updateTrayIcon, registerGlobalHotkeys, syncTrayTitleInterval } from './timer-actions'
 import { registerIpcHandlers } from './ipc-handlers'
 import { rebuildContextMenu, popUpContextMenu } from './window-actions'
 
@@ -134,6 +134,7 @@ app.whenReady().then(() => {
 
   const initialState = computeTimerState()
   updateTrayIcon(getTrayIconIndex(initialState))
+  syncTrayTitleInterval()
 })
 
 app.on('window-all-closed', () => {

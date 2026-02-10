@@ -22,6 +22,8 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   timerIcons: {},
   useTaskNumberAsTrayIcon: true,
+  showActiveTaskInTray: false,
+  showActiveTimeInTray: false,
   timerOrder: [],
   timerFriendlyNames: {}
 }

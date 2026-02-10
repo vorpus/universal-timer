@@ -17,7 +17,7 @@ import {
   timerDisplayNames
 } from './storage'
 import { computeTimerState, getTodayTimeline, getTimelineForDate } from './timer-state'
-import { startTimer, pauseTimer, pauseAll, notifyRenderer, registerGlobalHotkeys, updateTrayIcon } from './timer-actions'
+import { startTimer, pauseTimer, pauseAll, notifyRenderer, registerGlobalHotkeys, updateTrayIcon, syncTrayTitleInterval } from './timer-actions'
 import { getTrayIconIndex } from './timer-state'
 
 export function registerIpcHandlers(): void {
@@ -117,6 +117,10 @@ export function registerIpcHandlers(): void {
     if (settings.useTaskNumberAsTrayIcon !== oldUseTaskNumber) {
       const state = computeTimerState()
       updateTrayIcon(getTrayIconIndex(state))
+    }
+
+    if ('showActiveTaskInTray' in updates || 'showActiveTimeInTray' in updates) {
+      syncTrayTitleInterval()
     }
 
     const win = getMainWindow()

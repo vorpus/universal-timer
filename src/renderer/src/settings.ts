@@ -158,6 +158,8 @@ export async function initSettings(): Promise<void> {
       (document.getElementById('pause-others') as HTMLInputElement).checked = settings.pauseOthersOnStart ?? true;
       (document.getElementById('play-sounds') as HTMLInputElement).checked = settings.playSounds ?? false;
       (document.getElementById('use-task-number-tray') as HTMLInputElement).checked = settings.useTaskNumberAsTrayIcon ?? true;
+      (document.getElementById('show-active-task-tray') as HTMLInputElement).checked = settings.showActiveTaskInTray ?? false;
+      (document.getElementById('show-active-time-tray') as HTMLInputElement).checked = settings.showActiveTimeInTray ?? false;
 
       const hour = String(settings.dayStartHour ?? 0).padStart(2, '0');
       const minute = String(settings.dayStartMinute ?? 0).padStart(2, '0');
@@ -222,6 +224,22 @@ export function setupSettingsHandlers(): void {
   (document.getElementById('use-task-number-tray') as HTMLInputElement).addEventListener('change', async (e: Event) => {
     try {
       await window.timerAPI.updateSettings({ useTaskNumberAsTrayIcon: (e.target as HTMLInputElement).checked });
+    } catch (err) {
+      console.error('Failed to update setting:', err);
+    }
+  });
+
+  (document.getElementById('show-active-task-tray') as HTMLInputElement).addEventListener('change', async (e: Event) => {
+    try {
+      await window.timerAPI.updateSettings({ showActiveTaskInTray: (e.target as HTMLInputElement).checked });
+    } catch (err) {
+      console.error('Failed to update setting:', err);
+    }
+  });
+
+  (document.getElementById('show-active-time-tray') as HTMLInputElement).addEventListener('change', async (e: Event) => {
+    try {
+      await window.timerAPI.updateSettings({ showActiveTimeInTray: (e.target as HTMLInputElement).checked });
     } catch (err) {
       console.error('Failed to update setting:', err);
     }

@@ -71,12 +71,87 @@ export function updateTrayIcon(timerIndex: number | null): void {
 }
 
 // ========================================
+// Tray Title Management
+// ========================================
+
+let trayTitleInterval: ReturnType<typeof setInterval> | null = null
+
+function formatTrayTime(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  if (hours >= 1) {
+    return `${hours}:${String(minutes).padStart(2, '0')}`
+  }
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
+function composeTrayTitle(state: ReturnType<typeof computeTimerState>): string {
+  const showTask = settings.showActiveTaskInTray
+  const showTime = settings.showActiveTimeInTray
+  if (!showTask && !showTime) return ''
+
+  const hasRunning = state.runningTimers.length > 0
+  if (!hasRunning) {
+    return showTask ? 'Idle' : ''
+  }
+
+  const primaryTimer = state.runningTimers[0]
+  const timerInfo = state.timers.find(t => t.name === primaryTimer)
+  const displayName = timerInfo?.displayName ?? primaryTimer
+  const elapsed = timerInfo?.elapsedToday ?? 0
+  const timeStr = formatTrayTime(elapsed)
+
+  if (showTask && showTime) {
+    // Keep total length around 20 chars; time takes priority
+    const maxNameLen = Math.max(20 - timeStr.length - 1, 6)
+    const name = displayName.length > maxNameLen
+      ? displayName.slice(0, maxNameLen - 1) + '\u2026'
+      : displayName
+    return `${name} ${timeStr}`
+  }
+  if (showTask) return displayName
+  return timeStr
+}
+
+function updateTrayTitle(): void {
+  const tray = getTray()
+  if (!tray) return
+  const state = computeTimerState()
+  tray.setTitle(composeTrayTitle(state))
+}
+
+export function syncTrayTitleInterval(): void {
+  const showTask = settings.showActiveTaskInTray
+  const showTime = settings.showActiveTimeInTray
+  const state = computeTimerState()
+  const hasRunning = state.runningTimers.length > 0
+
+  const needsInterval = (showTask || showTime) && hasRunning
+
+  if (needsInterval) {
+    updateTrayTitle()
+    if (!trayTitleInterval) {
+      trayTitleInterval = setInterval(updateTrayTitle, 1000)
+    }
+  } else {
+    if (trayTitleInterval) {
+      clearInterval(trayTitleInterval)
+      trayTitleInterval = null
+    }
+    updateTrayTitle()
+  }
+}
+
+// ========================================
 // Notify Renderer
 // ========================================
 
 export function notifyRenderer(): void {
   const state = computeTimerState()
   updateTrayIcon(getTrayIconIndex(state))
+  syncTrayTitleInterval()
 
   const win = getMainWindow()
   if (win && !win.isDestroyed()) {

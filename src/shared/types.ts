@@ -40,6 +40,8 @@ export interface Settings {
   hotkeys: HotkeySettings
   timerIcons: Record<string, string>
   useTaskNumberAsTrayIcon: boolean
+  showActiveTaskInTray: boolean
+  showActiveTimeInTray: boolean
   timerOrder: string[]
   timerFriendlyNames: Record<string, string>
   deletedTimers?: string[]
