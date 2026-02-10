@@ -368,6 +368,28 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.timeline-label-text {
+  flex: 1;
+  text-align: center;
+}
+
+.timeline-nav-btn {
+  cursor: pointer;
+  color: #666;
+  font-size: 14px;
+  padding: 0 4px;
+  user-select: none;
+  -webkit-app-region: no-drag;
+  transition: color 0.15s;
+}
+
+.timeline-nav-btn:hover {
+  color: #e0e0e0;
 }
 
 .timeline-bar {
@@ -390,6 +412,26 @@ body {
   color: #666;
 }
 
+.timeline-segment {
+  height: 100%;
+  cursor: pointer;
+}
+
+.timeline-tooltip {
+  position: fixed;
+  display: none;
+  background: #333;
+  color: #e0e0e0;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+  pointer-events: none;
+  z-index: 200;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
 .per-timer-stats {
   margin-bottom: 12px;
 }
@@ -401,6 +443,14 @@ body {
   background: #252525;
   border-radius: 6px;
   margin-bottom: 4px;
+}
+
+.per-timer-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-right: 8px;
 }
 
 .per-timer-name {

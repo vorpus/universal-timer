@@ -63,6 +63,7 @@ export interface TimerState {
   runningTimers: string[]
   totalToday: number
   weeklyTrend: number
+  timerColors: Record<string, string>
 }
 
 // ========================================
@@ -129,7 +130,7 @@ export interface TimerAPI {
   getTimers: () => Promise<TimerInfo[]>
   getRunningTimer: () => Promise<string | null>
   getState: () => Promise<TimerState>
-  getTimeline: () => Promise<TimelineData>
+  getTimeline: (dateTs?: number) => Promise<TimelineData>
 
   // Settings
   getSettings: () => Promise<Settings>

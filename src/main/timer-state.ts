@@ -117,6 +117,14 @@ export function computeTimerState(): TimerState {
 
   const { intervals: timerIntervals, activeTimers } = buildTimerIntervals(events)
 
+  // Track order of first appearance for color assignment
+  const colorOrder: string[] = []
+  for (const event of events) {
+    if (event.event === 'start' && !colorOrder.includes(event.timer)) {
+      colorOrder.push(event.timer)
+    }
+  }
+
   // Calculate elapsed today for each timer
   const timers: TimerInfo[] = []
   const allTimerNames = new Set([...timerIntervals.keys(), ...activeTimers.keys()])
@@ -142,10 +150,10 @@ export function computeTimerState(): TimerState {
   }
 
   // Sort by custom order
-  const timerOrder: string[] = settings.timerOrder || []
+  const sortOrder: string[] = settings.timerOrder || []
   timers.sort((a, b) => {
-    const aIndex = timerOrder.indexOf(a.name)
-    const bIndex = timerOrder.indexOf(b.name)
+    const aIndex = sortOrder.indexOf(a.name)
+    const bIndex = sortOrder.indexOf(b.name)
 
     if (aIndex === -1 && bIndex === -1) return b.elapsedToday - a.elapsedToday
     if (aIndex === -1) return -1
@@ -164,18 +172,25 @@ export function computeTimerState(): TimerState {
     timer.weeklyTrend = weeklyTrends.get(timer.name) || 0
   }
 
-  return { timers, runningTimers, totalToday, weeklyTrend }
+  const timerColors: Record<string, string> = Object.fromEntries(
+    colorOrder.map((t, i) => [t, TIMER_COLORS[i % TIMER_COLORS.length]])
+  )
+
+  return { timers, runningTimers, totalToday, weeklyTrend, timerColors }
 }
 
 // ========================================
 // Timeline Data
 // ========================================
 
-export function getTodayTimeline(): TimelineData {
+export function getTimelineForDate(dateTs?: number): TimelineData {
   const events = loadEvents()
   const now = Date.now()
-  const todayStart = getDayStart().getTime()
-  const todayEnd = getDayEnd(getDayStart()).getTime()
+  const targetDate = dateTs != null ? new Date(dateTs) : new Date()
+  const dayStartDate = getDayStart(targetDate)
+  const todayStart = dayStartDate.getTime()
+  const todayEnd = getDayEnd(dayStartDate).getTime()
+  const isToday = dateTs == null || (todayStart <= now && now < todayEnd)
 
   const { intervals: timerIntervals, activeTimers } = buildTimerIntervals(events)
 
@@ -205,17 +220,19 @@ export function getTodayTimeline(): TimelineData {
     }
   }
 
-  // Add active timer segments up to now
-  for (const [timerName, startTs] of activeTimers) {
-    const overlap = calculateOverlap(startTs, now, todayStart, todayEnd)
-    if (overlap > 0) {
-      segments.push({
-        timer: timerName,
-        displayName: getDisplayName(timerName, timerName),
-        start: Math.max(startTs, todayStart),
-        end: Math.min(now, todayEnd),
-        color: getTimerColor(timerName, timerOrder)
-      })
+  // Add active timer segments up to now (only for today)
+  if (isToday) {
+    for (const [timerName, startTs] of activeTimers) {
+      const overlap = calculateOverlap(startTs, now, todayStart, todayEnd)
+      if (overlap > 0) {
+        segments.push({
+          timer: timerName,
+          displayName: getDisplayName(timerName, timerName),
+          start: Math.max(startTs, todayStart),
+          end: Math.min(now, todayEnd),
+          color: getTimerColor(timerName, timerOrder)
+        })
+      }
     }
   }
 
@@ -224,15 +241,27 @@ export function getTodayTimeline(): TimelineData {
   // Dynamic timeline boundaries
   let effectiveStart = todayStart
   if (segments.length > 0) {
-    effectiveStart = segments[0].start
+    // Round down to nearest hour
+    const firstStart = new Date(segments[0].start)
+    firstStart.setMinutes(0, 0, 0)
+    effectiveStart = firstStart.getTime()
   }
 
   let effectiveEnd = todayEnd
   if (segments.length > 0) {
-    const nextHour = new Date(now)
-    nextHour.setMinutes(0, 0, 0)
-    nextHour.setHours(nextHour.getHours() + 1)
-    effectiveEnd = Math.min(nextHour.getTime(), todayEnd)
+    if (isToday) {
+      const nextHour = new Date(now)
+      nextHour.setMinutes(0, 0, 0)
+      nextHour.setHours(nextHour.getHours() + 1)
+      effectiveEnd = Math.min(nextHour.getTime(), todayEnd)
+    } else {
+      // For past dates, end at the hour after the last segment
+      const lastEnd = segments[segments.length - 1].end
+      const nextHour = new Date(lastEnd)
+      nextHour.setMinutes(0, 0, 0)
+      nextHour.setHours(nextHour.getHours() + 1)
+      effectiveEnd = Math.min(nextHour.getTime(), todayEnd)
+    }
   }
 
   if (effectiveEnd <= effectiveStart) {
@@ -245,6 +274,10 @@ export function getTodayTimeline(): TimelineData {
     segments,
     timerColors: Object.fromEntries(timerOrder.map((t, i) => [t, TIMER_COLORS[i % TIMER_COLORS.length]]))
   }
+}
+
+export function getTodayTimeline(): TimelineData {
+  return getTimelineForDate()
 }
 
 // ========================================
