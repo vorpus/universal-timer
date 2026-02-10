@@ -14,7 +14,7 @@ const api: TimerAPI = {
   getTimers: () => ipcRenderer.invoke('timer:getAll'),
   getRunningTimer: () => ipcRenderer.invoke('timer:getRunning'),
   getState: () => ipcRenderer.invoke('timer:getState'),
-  getTimeline: () => ipcRenderer.invoke('timer:getTimeline'),
+  getTimeline: (dateTs?: number) => ipcRenderer.invoke('timer:getTimeline', dateTs),
 
   // Settings
   getSettings: () => ipcRenderer.invoke('settings:get'),

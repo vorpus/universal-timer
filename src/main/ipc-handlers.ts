@@ -16,7 +16,7 @@ import {
   normalizeTimerName,
   timerDisplayNames
 } from './storage'
-import { computeTimerState, getTodayTimeline } from './timer-state'
+import { computeTimerState, getTodayTimeline, getTimelineForDate } from './timer-state'
 import { startTimer, pauseTimer, pauseAll, notifyRenderer, registerGlobalHotkeys, updateTrayIcon } from './timer-actions'
 import { getTrayIconIndex } from './timer-state'
 
@@ -52,8 +52,8 @@ export function registerIpcHandlers(): void {
     return computeTimerState()
   })
 
-  ipcMain.handle('timer:getTimeline', () => {
-    return getTodayTimeline()
+  ipcMain.handle('timer:getTimeline', (_event: Electron.IpcMainInvokeEvent, dateTs?: number) => {
+    return dateTs != null ? getTimelineForDate(dateTs) : getTodayTimeline()
   })
 
   ipcMain.handle('timer:rename', (_event: Electron.IpcMainInvokeEvent, normalizedName: string, newFriendlyName: string) => {
