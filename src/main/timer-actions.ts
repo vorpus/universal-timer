@@ -5,7 +5,8 @@ import { exec } from 'child_process'
 
 import { getMainWindow, getTray } from './app-state'
 import { settings, normalizeTimerName, getDisplayName, appendEvent, saveSettings } from './storage'
-import { computeTimerState, getTrayIconIndex } from './timer-state'
+import { getTimerState, getRunningTimers, getTraySnapshot } from './event-cache'
+import { getTrayIconIndex } from './timer-state'
 
 // ========================================
 // Resource Path Helper
@@ -87,46 +88,48 @@ function formatTrayTime(ms: number): string {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
-function composeTrayTitle(state: ReturnType<typeof computeTimerState>): string {
+function updateTrayTitle(): void {
+  const tray = getTray()
+  if (!tray) return
+
   const showTask = settings.showActiveTaskInTray
   const showTime = settings.showActiveTimeInTray
-  if (!showTask && !showTime) return ''
-
-  const hasRunning = state.runningTimers.length > 0
-  if (!hasRunning) {
-    return showTask ? 'Idle' : ''
+  if (!showTask && !showTime) {
+    tray.setTitle('')
+    return
   }
 
-  const primaryTimer = state.runningTimers[0]
-  const timerInfo = state.timers.find(t => t.name === primaryTimer)
-  const displayName = timerInfo?.displayName ?? primaryTimer
-  const elapsed = timerInfo?.elapsedToday ?? 0
-  const timeStr = formatTrayTime(elapsed)
+  const snapshot = getTraySnapshot()
+  const hasRunning = snapshot.runningTimers.length > 0
+
+  if (!hasRunning) {
+    tray.setTitle(showTask ? 'Idle' : '')
+    return
+  }
+
+  // Compute current elapsed via snapshot arithmetic
+  const elapsedNow = snapshot.primaryElapsedAtSnapshot + (Date.now() - snapshot.snapshotTime)
+  const displayName = snapshot.primaryDisplayName
+  const timeStr = formatTrayTime(elapsedNow)
 
   if (showTask && showTime) {
-    // Keep total length around 20 chars; time takes priority
     const maxNameLen = Math.max(20 - timeStr.length - 1, 6)
     const name = displayName.length > maxNameLen
       ? displayName.slice(0, maxNameLen - 1) + '\u2026'
       : displayName
-    return `${name} ${timeStr}`
+    tray.setTitle(`${name} ${timeStr}`)
+  } else if (showTask) {
+    tray.setTitle(displayName)
+  } else {
+    tray.setTitle(timeStr)
   }
-  if (showTask) return displayName
-  return timeStr
-}
-
-function updateTrayTitle(): void {
-  const tray = getTray()
-  if (!tray) return
-  const state = computeTimerState()
-  tray.setTitle(composeTrayTitle(state))
 }
 
 export function syncTrayTitleInterval(): void {
   const showTask = settings.showActiveTaskInTray
   const showTime = settings.showActiveTimeInTray
-  const state = computeTimerState()
-  const hasRunning = state.runningTimers.length > 0
+  const snapshot = getTraySnapshot()
+  const hasRunning = snapshot.runningTimers.length > 0
 
   const needsInterval = (showTask || showTime) && hasRunning
 
@@ -149,7 +152,7 @@ export function syncTrayTitleInterval(): void {
 // ========================================
 
 export function notifyRenderer(): void {
-  const state = computeTimerState()
+  const state = getTimerState()
   updateTrayIcon(getTrayIconIndex(state))
   syncTrayTitleInterval()
 
@@ -175,10 +178,10 @@ export function startTimer(timerName: string): void {
   const now = Date.now()
 
   if (settings.pauseOthersOnStart) {
-    const state = computeTimerState()
-    for (const running of state.runningTimers) {
-      if (running !== normalized) {
-        appendEvent({ ts: now, event: 'pause', timer: running })
+    const running = getRunningTimers()
+    for (const runningTimer of running) {
+      if (runningTimer !== normalized) {
+        appendEvent({ ts: now, event: 'pause', timer: runningTimer })
       }
     }
   }
@@ -226,8 +229,8 @@ export function registerGlobalHotkeys(): void {
   for (const [timerName, hotkey] of Object.entries(timerHotkeys)) {
     try {
       const registered = globalShortcut.register(hotkey, () => {
-        const state = computeTimerState()
-        if (state.runningTimers.includes(timerName)) {
+        const running = getRunningTimers()
+        if (running.includes(timerName)) {
           pauseTimer(timerName)
         } else {
           startTimer(timerName)

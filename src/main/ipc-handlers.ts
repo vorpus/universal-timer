@@ -8,7 +8,6 @@ import { adjustWindowForPin, rebuildContextMenu, notifyPinState } from './window
 import {
   settings,
   DEFAULT_SETTINGS,
-  loadEvents,
   saveSettings,
   updateSettings,
   getEventsPath,
@@ -16,9 +15,9 @@ import {
   normalizeTimerName,
   timerDisplayNames
 } from './storage'
-import { computeTimerState, getTodayTimeline, getTimelineForDate } from './timer-state'
+import { getTodayTimeline, getTimelineForDate, getTrayIconIndex } from './timer-state'
+import { getTimerState, getEvents, replaceAllEvents, invalidateAll, invalidateDerived } from './event-cache'
 import { startTimer, pauseTimer, pauseAll, notifyRenderer, registerGlobalHotkeys, updateTrayIcon, syncTrayTitleInterval } from './timer-actions'
-import { getTrayIconIndex } from './timer-state'
 
 export function registerIpcHandlers(): void {
   // ========================================
@@ -27,29 +26,29 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('timer:start', (_event: Electron.IpcMainInvokeEvent, timerName: string) => {
     startTimer(timerName)
-    return computeTimerState()
+    return getTimerState()
   })
 
   ipcMain.handle('timer:pause', (_event: Electron.IpcMainInvokeEvent, timerName: string) => {
     pauseTimer(timerName)
-    return computeTimerState()
+    return getTimerState()
   })
 
   ipcMain.handle('timer:pauseAll', () => {
     pauseAll()
-    return computeTimerState()
+    return getTimerState()
   })
 
   ipcMain.handle('timer:getAll', () => {
-    return computeTimerState().timers
+    return getTimerState().timers
   })
 
   ipcMain.handle('timer:getRunning', () => {
-    return computeTimerState().runningTimers
+    return getTimerState().runningTimers
   })
 
   ipcMain.handle('timer:getState', () => {
-    return computeTimerState()
+    return getTimerState()
   })
 
   ipcMain.handle('timer:getTimeline', (_event: Electron.IpcMainInvokeEvent, dateTs?: number) => {
@@ -63,7 +62,7 @@ export function registerIpcHandlers(): void {
     settings.timerFriendlyNames[normalizedName] = newFriendlyName.trim()
     saveSettings()
     notifyRenderer()
-    return computeTimerState()
+    return getTimerState()
   })
 
   ipcMain.handle('timer:delete', (_event: Electron.IpcMainInvokeEvent, normalizedName: string) => {
@@ -86,7 +85,7 @@ export function registerIpcHandlers(): void {
     timerDisplayNames.delete(normalizedName)
     registerGlobalHotkeys()
     notifyRenderer()
-    return computeTimerState()
+    return getTimerState()
   })
 
   // ========================================
@@ -115,8 +114,12 @@ export function registerIpcHandlers(): void {
     }
 
     if (settings.useTaskNumberAsTrayIcon !== oldUseTaskNumber) {
-      const state = computeTimerState()
+      const state = getTimerState()
       updateTrayIcon(getTrayIconIndex(state))
+    }
+
+    if ('dayStartHour' in updates || 'dayStartMinute' in updates) {
+      invalidateDerived()
     }
 
     if ('showActiveTaskInTray' in updates || 'showActiveTimeInTray' in updates) {
@@ -147,7 +150,7 @@ export function registerIpcHandlers(): void {
         return { success: false, canceled: true } as OperationResult
       }
 
-      const events = loadEvents()
+      const events = getEvents()
       const exportData: ExportData = {
         version: 1,
         exportedAt: new Date().toISOString(),
@@ -208,6 +211,7 @@ export function registerIpcHandlers(): void {
       const tempPath = eventsPath + '.tmp'
       fs.writeFileSync(tempPath, eventsContent)
       fs.renameSync(tempPath, eventsPath)
+      replaceAllEvents(importData.events)
 
       timerDisplayNames.clear()
       for (const event of importData.events) {
@@ -263,6 +267,7 @@ export function registerIpcHandlers(): void {
 
       settings.eventLogPath = newPath
       saveSettings()
+      invalidateAll()
 
       return { success: true, path: newPath } as OperationResult
     } catch (err) {
@@ -274,6 +279,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('data:resetEventsPath', () => {
     settings.eventLogPath = null
     saveSettings()
+    invalidateAll()
     return { success: true, path: getEventsPath() } as OperationResult
   })
 

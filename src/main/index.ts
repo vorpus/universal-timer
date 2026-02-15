@@ -2,8 +2,9 @@ import { app, BrowserWindow, Tray, globalShortcut, screen } from 'electron'
 import path from 'path'
 
 import { setMainWindow, setTray, isPinned } from './app-state'
-import { loadSettings, loadEvents, normalizeTimerName, timerDisplayNames } from './storage'
-import { computeTimerState, getTrayIconIndex } from './timer-state'
+import { loadSettings, normalizeTimerName, timerDisplayNames } from './storage'
+import { getTrayIconIndex } from './timer-state'
+import { getTimerState, getEvents } from './event-cache'
 import { createTrayIcon, updateTrayIcon, registerGlobalHotkeys, syncTrayTitleInterval } from './timer-actions'
 import { registerIpcHandlers } from './ipc-handlers'
 import { rebuildContextMenu, popUpContextMenu } from './window-actions'
@@ -132,7 +133,7 @@ app.whenReady().then(() => {
   registerGlobalHotkeys()
   registerIpcHandlers()
 
-  const initialState = computeTimerState()
+  const initialState = getTimerState()
   updateTrayIcon(getTrayIconIndex(initialState))
   syncTrayTitleInterval()
 })
@@ -163,7 +164,7 @@ app.on('activate', () => {
 
 loadSettings()
 
-const existingEvents = loadEvents()
+const existingEvents = getEvents()
 for (const event of existingEvents) {
   if ('timer' in event) {
     const normalized = normalizeTimerName(event.timer)

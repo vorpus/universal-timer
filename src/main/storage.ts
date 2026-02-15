@@ -4,6 +4,7 @@ import fs from 'fs'
 
 import type { Settings, TimerEvent } from '../shared/types'
 import { getMainWindow } from './app-state'
+import { appendEventToCache, replaceAllEvents } from './event-cache'
 
 // ========================================
 // Default Settings
@@ -110,6 +111,7 @@ export function appendEvent(event: TimerEvent): void {
     const eventsPath = getEventsPath()
     const line = JSON.stringify(event) + '\n'
     fs.appendFileSync(eventsPath, line)
+    appendEventToCache(event)
   } catch (err) {
     notifyError('Failed to save timer event', err as Error)
   }
@@ -153,6 +155,7 @@ export function purgeTimerEvents(normalizedName: string): void {
     const tempPath = eventsPath + '.tmp'
     fs.writeFileSync(tempPath, content)
     fs.renameSync(tempPath, eventsPath)
+    replaceAllEvents(filtered)
   } catch (err) {
     notifyError('Failed to purge timer events', err as Error)
   }

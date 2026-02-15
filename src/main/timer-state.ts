@@ -1,7 +1,7 @@
 import type { TimerState, TimerInfo, TimelineSegment, TimelineData } from '../shared/types'
-import { settings, loadEvents, getDisplayName } from './storage'
+import { settings, getDisplayName } from './storage'
+import { getProcessedEvents, getColorOrder } from './event-cache'
 import {
-  buildTimerIntervals,
   calculateOverlap,
   getDayStart,
   getDayEnd,
@@ -9,6 +9,7 @@ import {
   sumIntervalsPerTimerForDay,
   computeTrend
 } from './event-processing'
+import type { ProcessedEvents } from './event-processing'
 
 // ========================================
 // Color Palette
@@ -35,9 +36,7 @@ function getTimerColor(timerName: string, timerOrder: string[]): string {
 // Per-Timer Weekly Stats
 // ========================================
 
-function calculatePerTimerWeeklyStats(now: number): { weeklyTotals: Map<string, number>; weeklyTrends: Map<string, number> } {
-  const events = loadEvents()
-  const processed = buildTimerIntervals(events)
+function calculatePerTimerWeeklyStats(now: number, processed: ProcessedEvents): { weeklyTotals: Map<string, number>; weeklyTrends: Map<string, number> } {
   const today = getDayStart()
   const todayEnd = getDayEnd(today)
   const daysFromMonday = getDaysFromMonday(today)
@@ -82,9 +81,7 @@ function calculatePerTimerWeeklyStats(now: number): { weeklyTotals: Map<string, 
 // Overall Weekly Trend
 // ========================================
 
-function calculateWeeklyTrend(totalToday: number, now: number): number {
-  const events = loadEvents()
-  const processed = buildTimerIntervals(events)
+function calculateWeeklyTrend(totalToday: number, now: number, processed: ProcessedEvents): number {
   const today = getDayStart()
   const daysFromMonday = getDaysFromMonday(today)
 
@@ -110,20 +107,13 @@ function calculateWeeklyTrend(totalToday: number, now: number): number {
 // ========================================
 
 export function computeTimerState(): TimerState {
-  const events = loadEvents()
   const now = Date.now()
   const todayStart = getDayStart().getTime()
   const todayEnd = getDayEnd(getDayStart()).getTime()
 
-  const { intervals: timerIntervals, activeTimers } = buildTimerIntervals(events)
-
-  // Track order of first appearance for color assignment
-  const colorOrder: string[] = []
-  for (const event of events) {
-    if (event.event === 'start' && !colorOrder.includes(event.timer)) {
-      colorOrder.push(event.timer)
-    }
-  }
+  const processed = getProcessedEvents()
+  const { intervals: timerIntervals, activeTimers } = processed
+  const colorOrder = getColorOrder()
 
   // Calculate elapsed today for each timer
   const timers: TimerInfo[] = []
@@ -163,10 +153,10 @@ export function computeTimerState(): TimerState {
 
   const runningTimers = [...activeTimers.keys()]
   const totalToday = timers.reduce((sum, t) => sum + t.elapsedToday, 0)
-  const weeklyTrend = calculateWeeklyTrend(totalToday, now)
+  const weeklyTrend = calculateWeeklyTrend(totalToday, now, processed)
 
   // Per-timer weekly stats
-  const { weeklyTotals, weeklyTrends } = calculatePerTimerWeeklyStats(now)
+  const { weeklyTotals, weeklyTrends } = calculatePerTimerWeeklyStats(now, processed)
   for (const timer of timers) {
     timer.weeklyTotal = weeklyTotals.get(timer.name) || 0
     timer.weeklyTrend = weeklyTrends.get(timer.name) || 0
@@ -184,7 +174,6 @@ export function computeTimerState(): TimerState {
 // ========================================
 
 export function getTimelineForDate(dateTs?: number): TimelineData {
-  const events = loadEvents()
   const now = Date.now()
   const targetDate = dateTs != null ? new Date(dateTs) : new Date()
   const dayStartDate = getDayStart(targetDate)
@@ -192,15 +181,8 @@ export function getTimelineForDate(dateTs?: number): TimelineData {
   const todayEnd = getDayEnd(dayStartDate).getTime()
   const isToday = dateTs == null || (todayStart <= now && now < todayEnd)
 
-  const { intervals: timerIntervals, activeTimers } = buildTimerIntervals(events)
-
-  // Track order of first appearance for color assignment
-  const timerOrder: string[] = []
-  for (const event of events) {
-    if (event.event === 'start' && !timerOrder.includes(event.timer)) {
-      timerOrder.push(event.timer)
-    }
-  }
+  const { intervals: timerIntervals, activeTimers } = getProcessedEvents()
+  const timerOrder = getColorOrder()
 
   // Collect today's segments (clipped to day boundaries)
   const segments: TimelineSegment[] = []
