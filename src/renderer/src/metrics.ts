@@ -197,6 +197,8 @@ export async function renderTimeline(): Promise<void> {
     if (!timeline.segments || timeline.segments.length === 0) {
       timelineBar.innerHTML = '';
       if (timelineTimes) timelineTimes.innerHTML = '';
+      const durationsEl = document.getElementById('timeline-durations');
+      if (durationsEl) { durationsEl.className = ''; durationsEl.innerHTML = ''; }
       return;
     }
 
@@ -253,6 +255,38 @@ export async function renderTimeline(): Promise<void> {
 
     if (timelineTimes) {
       timelineTimes.innerHTML = `<span>${formatCompactHour(timeline.dayStart)}</span><span>${formatCompactHour(timeline.dayEnd)}</span>`;
+    }
+
+    // Render per-project durations below the timeline
+    const durationsEl = document.getElementById('timeline-durations') as HTMLElement | null;
+    if (durationsEl) {
+      // Aggregate durations by timer
+      const durationMap = new Map<string, { displayName: string; color: string; total: number }>();
+      for (const segment of timeline.segments) {
+        const existing = durationMap.get(segment.timer);
+        const segDuration = segment.end - segment.start;
+        if (existing) {
+          existing.total += segDuration;
+        } else {
+          durationMap.set(segment.timer, {
+            displayName: segment.displayName,
+            color: segment.color,
+            total: segDuration,
+          });
+        }
+      }
+
+      // Sort by total duration descending
+      const sorted = [...durationMap.values()].sort((a, b) => b.total - a.total);
+
+      durationsEl.className = 'timeline-durations';
+      durationsEl.innerHTML = sorted.map(entry => `
+        <div class="timeline-duration-row">
+          <span class="timeline-duration-color" style="background: ${entry.color};"></span>
+          <span class="timeline-duration-name">${escapeHtml(entry.displayName)}</span>
+          <span class="timeline-duration-value">${formatDuration(entry.total)}</span>
+        </div>
+      `).join('');
     }
   } catch (err) {
     console.error('Failed to render timeline:', err);
