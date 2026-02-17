@@ -432,6 +432,41 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
+.timeline-durations {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.timeline-duration-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.timeline-duration-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.timeline-duration-name {
+  flex: 1;
+  font-size: 12px;
+  color: #ccc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.timeline-duration-value {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: #aaa;
+}
+
 .per-timer-stats {
   margin-bottom: 12px;
 }
