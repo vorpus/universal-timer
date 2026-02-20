@@ -127,6 +127,7 @@ export interface TimerAPI {
   pauseAll: () => Promise<TimerState>
   renameTimer: (name: string, newName: string) => Promise<TimerState>
   deleteTimer: (name: string) => Promise<TimerState>
+  deleteSegment: (timer: string, start: number, end: number) => Promise<void>
 
   // Get timer state
   getTimers: () => Promise<TimerInfo[]>

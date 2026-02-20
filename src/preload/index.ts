@@ -9,6 +9,7 @@ const api: TimerAPI = {
   pauseAll: () => ipcRenderer.invoke('timer:pauseAll'),
   renameTimer: (name: string, newName: string) => ipcRenderer.invoke('timer:rename', name, newName),
   deleteTimer: (name: string) => ipcRenderer.invoke('timer:delete', name),
+  deleteSegment: (timer: string, start: number, end: number) => ipcRenderer.invoke('timer:deleteSegment', timer, start, end),
 
   // Get timer state
   getTimers: () => ipcRenderer.invoke('timer:getAll'),
