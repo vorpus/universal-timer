@@ -12,6 +12,7 @@ import {
   updateSettings,
   getEventsPath,
   purgeTimerEvents,
+  deleteSegmentEvents,
   normalizeTimerName,
   timerDisplayNames
 } from './storage'
@@ -86,6 +87,11 @@ export function registerIpcHandlers(): void {
     registerGlobalHotkeys()
     notifyRenderer()
     return getTimerState()
+  })
+
+  ipcMain.handle('timer:deleteSegment', (_event: Electron.IpcMainInvokeEvent, timer: string, start: number, end: number) => {
+    deleteSegmentEvents(timer, start, end)
+    notifyRenderer()
   })
 
   // ========================================

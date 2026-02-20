@@ -162,6 +162,84 @@ export function purgeTimerEvents(normalizedName: string): void {
 }
 
 // ========================================
+// Segment Deletion
+// ========================================
+
+export function deleteSegmentEvents(timerName: string, segStart: number, segEnd: number): void {
+  try {
+    const events = loadEvents()
+
+    // Rebuild intervals to find the original interval that produced this segment
+    const activeStarts = new Map<string, number>()
+    let matchedStart: number | null = null
+    let matchedEnd: number | null = null
+    let matchedEndIsPauseAll = false
+
+    for (const event of events) {
+      if (event.event === 'start' && event.timer === timerName) {
+        activeStarts.set(timerName, event.ts)
+      } else if (event.event === 'pause' && event.timer === timerName) {
+        if (activeStarts.has(timerName)) {
+          const iStart = activeStarts.get(timerName)!
+          const iEnd = event.ts
+          // Check if this interval overlaps with the segment
+          if (iStart < segEnd && iEnd > segStart) {
+            matchedStart = iStart
+            matchedEnd = iEnd
+            matchedEndIsPauseAll = false
+          }
+          activeStarts.delete(timerName)
+        }
+      } else if (event.event === 'pause_all') {
+        if (activeStarts.has(timerName)) {
+          const iStart = activeStarts.get(timerName)!
+          const iEnd = event.ts
+          if (iStart < segEnd && iEnd > segStart) {
+            matchedStart = iStart
+            matchedEnd = iEnd
+            matchedEndIsPauseAll = true
+          }
+          activeStarts.delete(timerName)
+        }
+      }
+    }
+
+    // Handle active timer (no closing event yet)
+    if (activeStarts.has(timerName)) {
+      const iStart = activeStarts.get(timerName)!
+      if (iStart < segEnd) {
+        matchedStart = iStart
+        matchedEnd = null // still active
+      }
+    }
+
+    if (matchedStart === null) return
+
+    // Filter out the events that created this interval
+    const filtered = events.filter(e => {
+      // Remove the start event
+      if (e.event === 'start' && e.timer === timerName && e.ts === matchedStart) {
+        return false
+      }
+      // Remove the pause event (only if it's a timer-specific pause, not pause_all)
+      if (!matchedEndIsPauseAll && matchedEnd !== null && e.event === 'pause' && e.timer === timerName && e.ts === matchedEnd) {
+        return false
+      }
+      return true
+    })
+
+    const eventsPath = getEventsPath()
+    const content = filtered.map(e => JSON.stringify(e)).join('\n') + (filtered.length ? '\n' : '')
+    const tempPath = eventsPath + '.tmp'
+    fs.writeFileSync(tempPath, content)
+    fs.renameSync(tempPath, eventsPath)
+    replaceAllEvents(filtered)
+  } catch (err) {
+    notifyError('Failed to delete segment', err as Error)
+  }
+}
+
+// ========================================
 // Timer Name Normalization
 // ========================================
 

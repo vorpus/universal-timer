@@ -90,40 +90,87 @@ export function updateTotalTimeDisplay(additionalElapsed: number, runningCount: 
 // ========================================
 
 let tooltipEl: HTMLElement | null = null;
+let hideTimeout: ReturnType<typeof setTimeout> | null = null;
+let currentTooltipSegment: { timer: string; start: number; end: number } | null = null;
 
 function getTooltip(): HTMLElement {
   if (!tooltipEl) {
     tooltipEl = document.createElement('div');
     tooltipEl.className = 'timeline-tooltip';
     document.body.appendChild(tooltipEl);
+
+    tooltipEl.addEventListener('mouseenter', () => {
+      if (hideTimeout) {
+        clearTimeout(hideTimeout);
+        hideTimeout = null;
+      }
+    });
+    tooltipEl.addEventListener('mouseleave', () => {
+      hideTooltip();
+    });
   }
   return tooltipEl;
 }
 
-function showTooltip(segment: { displayName: string; start: number; end: number }, x: number, y: number): void {
+function showTooltip(segment: { timer: string; displayName: string; start: number; end: number }, segmentEl: HTMLElement): void {
   const tip = getTooltip();
   const durationMs = segment.end - segment.start;
-  tip.innerHTML = `<strong>${escapeHtml(segment.displayName)}</strong><br>${formatDuration(durationMs)}`;
+  tip.innerHTML = `<strong>${escapeHtml(segment.displayName)}</strong><br>${formatDuration(durationMs)}<span class="tooltip-delete" title="Remove segment">\u00d7</span>`;
   tip.style.display = 'block';
+  currentTooltipSegment = { timer: segment.timer, start: segment.start, end: segment.end };
 
-  // Position above the cursor
+  // Wire up delete button
+  const deleteBtn = tip.querySelector('.tooltip-delete') as HTMLElement;
+  if (deleteBtn) {
+    deleteBtn.onclick = async (e) => {
+      e.stopPropagation();
+      if (currentTooltipSegment) {
+        await window.timerAPI.deleteSegment(currentTooltipSegment.timer, currentTooltipSegment.start, currentTooltipSegment.end);
+        hideTooltipImmediate();
+        renderTimeline();
+      }
+    };
+  }
+
+  if (hideTimeout) {
+    clearTimeout(hideTimeout);
+    hideTimeout = null;
+  }
+
+  // Position above the segment at a fixed distance
+  const segRect = segmentEl.getBoundingClientRect();
   const tipRect = tip.getBoundingClientRect();
-  let left = x - tipRect.width / 2;
-  let top = y - tipRect.height - 8;
+  let left = segRect.left + segRect.width / 2 - tipRect.width / 2;
+  const top = segRect.top - tipRect.height - 8;
 
   // Keep within viewport
   if (left < 4) left = 4;
   if (left + tipRect.width > window.innerWidth - 4) left = window.innerWidth - tipRect.width - 4;
-  if (top < 4) top = y + 20;
 
   tip.style.left = `${left}px`;
-  tip.style.top = `${top}px`;
+  tip.style.top = `${Math.max(4, top)}px`;
+}
+
+function scheduleHide(): void {
+  if (hideTimeout) clearTimeout(hideTimeout);
+  hideTimeout = setTimeout(() => {
+    hideTooltipImmediate();
+  }, 150);
 }
 
 function hideTooltip(): void {
+  hideTooltipImmediate();
+}
+
+function hideTooltipImmediate(): void {
+  if (hideTimeout) {
+    clearTimeout(hideTimeout);
+    hideTimeout = null;
+  }
   if (tooltipEl) {
     tooltipEl.style.display = 'none';
   }
+  currentTooltipSegment = null;
 }
 
 // ========================================
@@ -240,16 +287,11 @@ export async function renderTimeline(): Promise<void> {
       const idx = parseInt((el as HTMLElement).dataset.segmentIndex || '0', 10);
       const segment = timeline.segments[idx];
 
-      el.addEventListener('mouseenter', (e) => {
-        const me = e as MouseEvent;
-        showTooltip(segment, me.clientX, me.clientY);
-      });
-      el.addEventListener('mousemove', (e) => {
-        const me = e as MouseEvent;
-        showTooltip(segment, me.clientX, me.clientY);
+      el.addEventListener('mouseenter', () => {
+        showTooltip(segment, el as HTMLElement);
       });
       el.addEventListener('mouseleave', () => {
-        hideTooltip();
+        scheduleHide();
       });
     });
 

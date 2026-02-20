@@ -426,10 +426,26 @@ body {
   border-radius: 6px;
   font-size: 12px;
   line-height: 1.4;
-  pointer-events: none;
+  pointer-events: auto;
   z-index: 200;
   white-space: nowrap;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.tooltip-delete {
+  display: inline-block;
+  margin-left: 8px;
+  cursor: pointer;
+  color: #888;
+  font-size: 15px;
+  font-weight: bold;
+  line-height: 1;
+  vertical-align: middle;
+  transition: color 0.15s;
+}
+
+.tooltip-delete:hover {
+  color: #f87171;
 }
 
 .timeline-durations {
