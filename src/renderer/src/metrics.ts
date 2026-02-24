@@ -321,6 +321,9 @@ export async function renderTimeline(): Promise<void> {
       // Sort by total duration descending
       const sorted = [...durationMap.values()].sort((a, b) => b.total - a.total);
 
+      // Compute daily total across all timers
+      const dayTotal = sorted.reduce((sum, entry) => sum + entry.total, 0);
+
       durationsEl.className = 'timeline-durations';
       durationsEl.innerHTML = sorted.map(entry => `
         <div class="timeline-duration-row">
@@ -328,7 +331,12 @@ export async function renderTimeline(): Promise<void> {
           <span class="timeline-duration-name">${escapeHtml(entry.displayName)}</span>
           <span class="timeline-duration-value">${formatDuration(entry.total)}</span>
         </div>
-      `).join('');
+      `).join('') + `
+        <div class="timeline-duration-total">
+          <span class="timeline-duration-name">Total</span>
+          <span class="timeline-duration-value">${formatDuration(dayTotal)}</span>
+        </div>
+      `;
     }
   } catch (err) {
     console.error('Failed to render timeline:', err);
