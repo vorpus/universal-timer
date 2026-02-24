@@ -483,6 +483,25 @@ body {
   color: #aaa;
 }
 
+.timeline-duration-total {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid #333;
+}
+
+.timeline-duration-total .timeline-duration-name {
+  font-weight: 600;
+  color: #ddd;
+}
+
+.timeline-duration-total .timeline-duration-value {
+  font-weight: 600;
+  color: #ccc;
+}
+
 .per-timer-stats {
   margin-bottom: 12px;
 }
