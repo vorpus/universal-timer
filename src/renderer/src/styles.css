@@ -532,6 +532,11 @@ body {
   text-align: right;
 }
 
+.per-timer-row.running {
+  background: #1e3a2f;
+  border: 1px solid #2d5a45;
+}
+
 .per-timer-trend.up {
   color: #4ade80;
 }

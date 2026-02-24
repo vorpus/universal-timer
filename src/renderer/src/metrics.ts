@@ -56,8 +56,9 @@ export function updateMetrics(data: TimerState): void {
           trendHtml = `<span class="per-timer-trend">0%</span>`;
         }
         const color = timerColors[timer.name] || '#888';
+        const rowClass = timer.isRunning ? 'per-timer-row running' : 'per-timer-row';
         return `
-          <div class="per-timer-row">
+          <div class="${rowClass}">
             <span class="per-timer-color" style="background: ${color};"></span>
             <span class="per-timer-name">${escapeHtml(timer.displayName || timer.name)}</span>
             <span class="per-timer-today" data-timer="${timer.name}" data-base-elapsed="${timer.elapsedToday}">${formatDuration(timer.elapsedToday)}</span>
