@@ -27,14 +27,15 @@ export function updateMetrics(data: TimerState): void {
 
   if (data.weeklyTrend !== undefined) {
     const trend = data.weeklyTrend;
+    const avgSuffix = data.weeklyAvg != null ? ` of ${formatDuration(data.weeklyAvg)}` : '';
     if (trend > 0) {
-      weeklyTrendEl.textContent = `+${trend}% vs weekly avg`;
+      weeklyTrendEl.textContent = `+${trend}% vs weekly avg${avgSuffix}`;
       weeklyTrendEl.className = 'metric-trend up';
     } else if (trend < 0) {
-      weeklyTrendEl.textContent = `${trend}% vs weekly avg`;
+      weeklyTrendEl.textContent = `${trend}% vs weekly avg${avgSuffix}`;
       weeklyTrendEl.className = 'metric-trend down';
     } else {
-      weeklyTrendEl.textContent = 'Same as weekly avg';
+      weeklyTrendEl.textContent = avgSuffix ? `Same as weekly avg${avgSuffix}` : 'Same as weekly avg';
       weeklyTrendEl.className = 'metric-trend';
     }
   }
@@ -553,6 +554,7 @@ export async function renderCalendar(): Promise<void> {
           const classes = ['calendar-day'];
           if (cell.otherMonth) classes.push('other-month');
           if (cell.isToday) classes.push('today');
+          if (!cell.otherMonth) classes.push('clickable');
 
           let pieHtml = '';
           if (cell.dayData && cell.dayData.totalMs > 0) {
@@ -560,7 +562,9 @@ export async function renderCalendar(): Promise<void> {
             pieHtml = `<div class="calendar-day-pie">${buildPieSvg(cell.dayData, radius)}</div>`;
           }
 
-          return `<div class="${classes.join(' ')}">
+          const dateAttr = cell.otherMonth ? '' : ` data-date="${data.year}-${String(data.month + 1).padStart(2, '0')}-${String(cell.dayNum).padStart(2, '0')}"`;
+
+          return `<div class="${classes.join(' ')}"${dateAttr}>
             <div class="calendar-day-number">${cell.dayNum}</div>
             ${pieHtml}
           </div>`;
@@ -605,6 +609,25 @@ export async function renderCalendar(): Promise<void> {
         renderCalendar();
       };
     }
+
+    // Click on a calendar day to navigate the timeline to that date
+    const dayEls = container.querySelectorAll<HTMLElement>('.calendar-day.clickable[data-date]');
+    dayEls.forEach(el => {
+      el.onclick = () => {
+        const dateStr = el.dataset.date;
+        if (!dateStr) return;
+        const [y, m, d] = dateStr.split('-').map(Number);
+        const clickedDate = new Date(y, m - 1, d);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        clickedDate.setHours(0, 0, 0, 0);
+        const diffDays = Math.round((clickedDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDays <= 0) {
+          timelineDateOffset = diffDays;
+          renderTimeline();
+        }
+      };
+    });
   } catch (err) {
     console.error('Failed to render calendar:', err);
   }
