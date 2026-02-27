@@ -178,15 +178,15 @@ function hideTooltipImmediate(): void {
 // Timeline Date Label
 // ========================================
 
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
 function getTimelineLabelText(): string {
-  if (timelineDateOffset === 0) {
-    return "Today's Timeline";
-  }
   const date = new Date();
   date.setDate(date.getDate() + timelineDateOffset);
+  const dayName = DAY_NAMES[date.getDay()];
   const month = date.getMonth() + 1;
   const day = date.getDate();
-  return `${month}/${day} Timeline`;
+  return `${dayName} ${month}/${day} Timeline`;
 }
 
 function getDateTimestamp(): number | undefined {

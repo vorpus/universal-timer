@@ -371,6 +371,12 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  position: relative;
+}
+
+.timeline-nav-today {
+  position: absolute;
+  right: 0;
 }
 
 .timeline-label-text {
