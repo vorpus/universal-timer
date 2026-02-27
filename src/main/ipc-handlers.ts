@@ -16,7 +16,7 @@ import {
   normalizeTimerName,
   timerDisplayNames
 } from './storage'
-import { getTodayTimeline, getTimelineForDate, getTrayIconIndex } from './timer-state'
+import { getTodayTimeline, getTimelineForDate, getMonthlyCalendarData, getTrayIconIndex } from './timer-state'
 import { getTimerState, getEvents, replaceAllEvents, invalidateAll, invalidateDerived } from './event-cache'
 import { startTimer, pauseTimer, pauseAll, notifyRenderer, registerGlobalHotkeys, updateTrayIcon, syncTrayTitleInterval } from './timer-actions'
 
@@ -54,6 +54,10 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('timer:getTimeline', (_event: Electron.IpcMainInvokeEvent, dateTs?: number) => {
     return dateTs != null ? getTimelineForDate(dateTs) : getTodayTimeline()
+  })
+
+  ipcMain.handle('timer:getMonthlyCalendar', (_event: Electron.IpcMainInvokeEvent, year: number, month: number) => {
+    return getMonthlyCalendarData(year, month)
   })
 
   ipcMain.handle('timer:rename', (_event: Electron.IpcMainInvokeEvent, normalizedName: string, newFriendlyName: string) => {

@@ -16,6 +16,7 @@ const api: TimerAPI = {
   getRunningTimer: () => ipcRenderer.invoke('timer:getRunning'),
   getState: () => ipcRenderer.invoke('timer:getState'),
   getTimeline: (dateTs?: number) => ipcRenderer.invoke('timer:getTimeline', dateTs),
+  getMonthlyCalendar: (year: number, month: number) => ipcRenderer.invoke('timer:getMonthlyCalendar', year, month),
 
   // Settings
   getSettings: () => ipcRenderer.invoke('settings:get'),

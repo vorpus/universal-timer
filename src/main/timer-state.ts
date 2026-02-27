@@ -1,4 +1,4 @@
-import type { TimerState, TimerInfo, TimelineSegment, TimelineData } from '../shared/types'
+import type { TimerState, TimerInfo, TimelineSegment, TimelineData, MonthlyCalendarData, CalendarDayData } from '../shared/types'
 import { settings, getDisplayName } from './storage'
 import { getProcessedEvents, getColorOrder } from './event-cache'
 import {
@@ -267,6 +267,53 @@ export function getTimelineForDate(dateTs?: number): TimelineData {
 
 export function getTodayTimeline(): TimelineData {
   return getTimelineForDate()
+}
+
+// ========================================
+// Monthly Calendar Data
+// ========================================
+
+export function getMonthlyCalendarData(year: number, month: number): MonthlyCalendarData {
+  const now = Date.now()
+  const processed = getProcessedEvents()
+  const colorOrder = getColorOrder()
+
+  const timerColors: Record<string, string> = Object.fromEntries(
+    colorOrder.map((t, i) => [t, TIMER_COLORS[i % TIMER_COLORS.length]])
+  )
+
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const days: CalendarDayData[] = []
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateObj = new Date(year, month, day, settings.dayStartHour, settings.dayStartMinute, 0, 0)
+    const dayStart = dateObj.getTime()
+    const dayEnd = getDayEnd(dateObj).getTime()
+
+    // Only include active timers for today
+    const isToday = dayStart <= now && now < dayEnd
+    const perTimer = sumIntervalsPerTimerForDay(processed, dayStart, dayEnd, isToday, now)
+
+    let totalMs = 0
+    const timers: CalendarDayData['timers'] = []
+    for (const [timerName, ms] of perTimer) {
+      totalMs += ms
+      timers.push({
+        name: timerName,
+        displayName: getDisplayName(timerName, timerName),
+        ms,
+        color: timerColors[timerName] || TIMER_COLORS[0]
+      })
+    }
+
+    // Sort by ms descending for consistent pie chart ordering
+    timers.sort((a, b) => b.ms - a.ms)
+
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    days.push({ date: dateStr, totalMs, timers })
+  }
+
+  return { year, month, days, timerColors }
 }
 
 // ========================================

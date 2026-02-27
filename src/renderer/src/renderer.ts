@@ -2,7 +2,7 @@ import './styles.css'
 
 import type { TimerState, AppError } from '../../shared/types'
 import { renderTimers, stopLiveUpdate } from './timers'
-import { updateMetrics, renderTimeline } from './metrics'
+import { updateMetrics, renderTimeline, renderCalendar } from './metrics'
 import { initSettings, setupSettingsHandlers } from './settings'
 
 // ========================================
@@ -80,6 +80,7 @@ window.timerAPI.onTimerUpdate((data: TimerState) => {
   renderTimers(data.timers);
   updateMetrics(data);
   renderTimeline();
+  renderCalendar();
 });
 
 // ========================================
@@ -96,6 +97,7 @@ async function init(): Promise<void> {
     renderTimers(state.timers);
     updateMetrics(state);
     await renderTimeline();
+    await renderCalendar();
   } catch (err) {
     console.error('Failed to load timers:', err);
   }
