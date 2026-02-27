@@ -1,4 +1,4 @@
-import type { TimerState, TimelineData, MonthlyCalendarData, CalendarDayData } from '../../shared/types';
+import type { TimerState, TimerInfo, TimelineData, MonthlyCalendarData, CalendarDayData } from '../../shared/types';
 import { formatTime, formatDuration, formatCompactHour, escapeHtml } from './formatting';
 
 // ========================================
@@ -47,14 +47,7 @@ export function updateMetrics(data: TimerState): void {
     if (relevant.length > 0) {
       perTimerStats.className = 'per-timer-stats';
       perTimerStats.innerHTML = relevant.map(timer => {
-        let trendHtml = '';
-        if (timer.weeklyTrend && timer.weeklyTrend > 0) {
-          trendHtml = `<span class="per-timer-trend up">+${timer.weeklyTrend}%</span>`;
-        } else if (timer.weeklyTrend && timer.weeklyTrend < 0) {
-          trendHtml = `<span class="per-timer-trend down">${timer.weeklyTrend}%</span>`;
-        } else {
-          trendHtml = `<span class="per-timer-trend">0%</span>`;
-        }
+        const trendHtml = buildTrendHtml(timer);
         const color = timerColors[timer.name] || '#888';
         const rowClass = timer.isRunning ? 'per-timer-row running' : 'per-timer-row';
         return `
@@ -67,11 +60,89 @@ export function updateMetrics(data: TimerState): void {
           </div>
         `;
       }).join('');
+
+      // Attach popover handlers for trend elements
+      attachTrendPopovers(perTimerStats);
     } else {
       perTimerStats.className = '';
       perTimerStats.innerHTML = '';
     }
   }
+}
+
+// ========================================
+// Per-Timer Trend Popover
+// ========================================
+
+function buildTrendHtml(timer: TimerInfo): string {
+  const trend = timer.weeklyTrend || 0;
+  const avgMs = timer.weeklyAvg;
+  let trendClass = 'per-timer-trend';
+  let trendText = '0%';
+
+  if (trend > 0) {
+    trendClass += ' up';
+    trendText = `+${trend}%`;
+  } else if (trend < 0) {
+    trendClass += ' down';
+    trendText = `${trend}%`;
+  }
+
+  // Build popover description
+  let popoverText = '';
+  if (avgMs != null) {
+    const sign = trend > 0 ? '+' : '';
+    popoverText = `${sign}${trend}% from weekly avg of ${formatDuration(avgMs)}`;
+  }
+
+  return `<span class="${trendClass}" data-trend-popover="${escapeHtml(popoverText)}">${trendText}</span>`;
+}
+
+let trendPopoverEl: HTMLElement | null = null;
+
+function getTrendPopover(): HTMLElement {
+  if (!trendPopoverEl) {
+    trendPopoverEl = document.createElement('div');
+    trendPopoverEl.className = 'trend-popover';
+    document.body.appendChild(trendPopoverEl);
+  }
+  return trendPopoverEl;
+}
+
+function showTrendPopover(text: string, anchor: HTMLElement): void {
+  if (!text) return;
+  const popover = getTrendPopover();
+  popover.textContent = text;
+  popover.style.display = 'block';
+
+  // Position above the trend element
+  const rect = anchor.getBoundingClientRect();
+  const popRect = popover.getBoundingClientRect();
+  let left = rect.left + rect.width / 2 - popRect.width / 2;
+  const top = rect.top - popRect.height - 6;
+
+  // Keep within viewport
+  if (left < 4) left = 4;
+  if (left + popRect.width > window.innerWidth - 4) left = window.innerWidth - popRect.width - 4;
+
+  popover.style.left = `${left}px`;
+  popover.style.top = `${Math.max(4, top)}px`;
+}
+
+function hideTrendPopover(): void {
+  if (trendPopoverEl) {
+    trendPopoverEl.style.display = 'none';
+  }
+}
+
+function attachTrendPopovers(container: HTMLElement): void {
+  const trendEls = container.querySelectorAll<HTMLElement>('.per-timer-trend[data-trend-popover]');
+  trendEls.forEach(el => {
+    const text = el.dataset.trendPopover || '';
+    if (!text) return;
+    el.addEventListener('mouseenter', () => showTrendPopover(text, el));
+    el.addEventListener('mouseleave', () => hideTrendPopover());
+  });
 }
 
 // ========================================
@@ -178,15 +249,15 @@ function hideTooltipImmediate(): void {
 // Timeline Date Label
 // ========================================
 
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
 function getTimelineLabelText(): string {
-  if (timelineDateOffset === 0) {
-    return "Today's Timeline";
-  }
   const date = new Date();
   date.setDate(date.getDate() + timelineDateOffset);
+  const dayName = DAY_NAMES[date.getDay()];
   const month = date.getMonth() + 1;
   const day = date.getDate();
-  return `${month}/${day} Timeline`;
+  return `${dayName} ${month}/${day} Timeline`;
 }
 
 function getDateTimestamp(): number | undefined {
