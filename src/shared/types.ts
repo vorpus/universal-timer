@@ -58,6 +58,7 @@ export interface TimerInfo {
   isRunning: boolean
   weeklyTotal?: number
   weeklyTrend?: number
+  weeklyAvg?: number
 }
 
 export interface TimerState {

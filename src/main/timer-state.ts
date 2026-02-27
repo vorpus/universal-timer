@@ -36,7 +36,7 @@ function getTimerColor(timerName: string, timerOrder: string[]): string {
 // Per-Timer Weekly Stats
 // ========================================
 
-function calculatePerTimerWeeklyStats(now: number, processed: ProcessedEvents): { weeklyTotals: Map<string, number>; weeklyTrends: Map<string, number> } {
+function calculatePerTimerWeeklyStats(now: number, processed: ProcessedEvents): { weeklyTotals: Map<string, number>; weeklyTrends: Map<string, number>; weeklyAvgs: Map<string, number> } {
   const today = getDayStart()
   const todayEnd = getDayEnd(today)
   const daysFromMonday = getDaysFromMonday(today)
@@ -66,15 +66,21 @@ function calculatePerTimerWeeklyStats(now: number, processed: ProcessedEvents): 
     }
   }
 
-  // Per-timer weekly trends
+  // Per-timer weekly trends and daily averages
   const weeklyTrends = new Map<string, number>()
+  const weeklyAvgs = new Map<string, number>()
   for (const timer of new Set([...todayTotals.keys(), ...previousDayTotals.keys()])) {
     const todayMs = todayTotals.get(timer) || 0
     const prevDays = previousDayTotals.get(timer) || []
     weeklyTrends.set(timer, computeTrend(todayMs, prevDays, daysFromMonday))
+
+    if (daysFromMonday > 0) {
+      const prevSum = prevDays.reduce((s, v) => s + v, 0)
+      weeklyAvgs.set(timer, prevSum / daysFromMonday)
+    }
   }
 
-  return { weeklyTotals, weeklyTrends }
+  return { weeklyTotals, weeklyTrends, weeklyAvgs }
 }
 
 // ========================================
@@ -156,10 +162,11 @@ export function computeTimerState(): TimerState {
   const weeklyTrend = calculateWeeklyTrend(totalToday, now, processed)
 
   // Per-timer weekly stats
-  const { weeklyTotals, weeklyTrends } = calculatePerTimerWeeklyStats(now, processed)
+  const { weeklyTotals, weeklyTrends, weeklyAvgs } = calculatePerTimerWeeklyStats(now, processed)
   for (const timer of timers) {
     timer.weeklyTotal = weeklyTotals.get(timer.name) || 0
     timer.weeklyTrend = weeklyTrends.get(timer.name) || 0
+    timer.weeklyAvg = weeklyAvgs.get(timer.name)
   }
 
   const timerColors: Record<string, string> = Object.fromEntries(

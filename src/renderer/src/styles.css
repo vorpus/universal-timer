@@ -555,6 +555,22 @@ body {
   font-size: 11px;
   min-width: 48px;
   text-align: right;
+  cursor: default;
+}
+
+.trend-popover {
+  position: fixed;
+  display: none;
+  background: #333;
+  color: #e0e0e0;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+  pointer-events: none;
+  z-index: 200;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 .per-timer-row.running {
