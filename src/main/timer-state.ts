@@ -87,11 +87,11 @@ function calculatePerTimerWeeklyStats(now: number, processed: ProcessedEvents): 
 // Overall Weekly Trend
 // ========================================
 
-function calculateWeeklyTrend(totalToday: number, now: number, processed: ProcessedEvents): number {
+function calculateWeeklyTrendAndAvg(totalToday: number, now: number, processed: ProcessedEvents): { trend: number; avg: number | undefined } {
   const today = getDayStart()
   const daysFromMonday = getDaysFromMonday(today)
 
-  if (daysFromMonday === 0) return 0
+  if (daysFromMonday === 0) return { trend: 0, avg: undefined }
 
   const previousDayTotals: number[] = []
   for (let i = 1; i <= daysFromMonday; i++) {
@@ -105,7 +105,11 @@ function calculateWeeklyTrend(totalToday: number, now: number, processed: Proces
     previousDayTotals.push(dayTotal)
   }
 
-  return computeTrend(totalToday, previousDayTotals, daysFromMonday)
+  const trend = computeTrend(totalToday, previousDayTotals, daysFromMonday)
+  const prevSum = previousDayTotals.reduce((s, v) => s + v, 0)
+  const avg = prevSum / daysFromMonday
+
+  return { trend, avg }
 }
 
 // ========================================
@@ -159,7 +163,7 @@ export function computeTimerState(): TimerState {
 
   const runningTimers = [...activeTimers.keys()]
   const totalToday = timers.reduce((sum, t) => sum + t.elapsedToday, 0)
-  const weeklyTrend = calculateWeeklyTrend(totalToday, now, processed)
+  const { trend: weeklyTrend, avg: weeklyAvg } = calculateWeeklyTrendAndAvg(totalToday, now, processed)
 
   // Per-timer weekly stats
   const { weeklyTotals, weeklyTrends, weeklyAvgs } = calculatePerTimerWeeklyStats(now, processed)
@@ -173,7 +177,7 @@ export function computeTimerState(): TimerState {
     colorOrder.map((t, i) => [t, TIMER_COLORS[i % TIMER_COLORS.length]])
   )
 
-  return { timers, runningTimers, totalToday, weeklyTrend, timerColors }
+  return { timers, runningTimers, totalToday, weeklyTrend, weeklyAvg, timerColors }
 }
 
 // ========================================

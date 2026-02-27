@@ -66,6 +66,7 @@ export interface TimerState {
   runningTimers: string[]
   totalToday: number
   weeklyTrend: number
+  weeklyAvg?: number
   timerColors: Record<string, string>
 }
 
