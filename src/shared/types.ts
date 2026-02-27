@@ -88,6 +88,23 @@ export interface TimelineData {
 }
 
 // ========================================
+// Monthly Calendar
+// ========================================
+
+export interface CalendarDayData {
+  date: string // ISO date string 'YYYY-MM-DD'
+  totalMs: number
+  timers: { name: string; displayName: string; ms: number; color: string }[]
+}
+
+export interface MonthlyCalendarData {
+  year: number
+  month: number // 0-indexed (0 = January)
+  days: CalendarDayData[]
+  timerColors: Record<string, string>
+}
+
+// ========================================
 // Operation Results
 // ========================================
 
@@ -134,6 +151,7 @@ export interface TimerAPI {
   getRunningTimer: () => Promise<string | null>
   getState: () => Promise<TimerState>
   getTimeline: (dateTs?: number) => Promise<TimelineData>
+  getMonthlyCalendar: (year: number, month: number) => Promise<MonthlyCalendarData>
 
   // Settings
   getSettings: () => Promise<Settings>

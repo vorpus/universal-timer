@@ -1,4 +1,4 @@
-import type { TimerState, TimelineData } from '../../shared/types';
+import type { TimerState, TimelineData, MonthlyCalendarData, CalendarDayData } from '../../shared/types';
 import { formatTime, formatDuration, formatCompactHour, escapeHtml } from './formatting';
 
 // ========================================
@@ -341,5 +341,200 @@ export async function renderTimeline(): Promise<void> {
     }
   } catch (err) {
     console.error('Failed to render timeline:', err);
+  }
+}
+
+// ========================================
+// Monthly Calendar
+// ========================================
+
+let calendarYear = new Date().getFullYear();
+let calendarMonth = new Date().getMonth(); // 0-indexed
+
+const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'];
+
+/** Max radius for pie chart in pixels. Scales linearly up to MAX_HOURS. */
+const PIE_MAX_RADIUS = 16;
+const PIE_MIN_RADIUS = 4;
+const MAX_HOURS = 10; // hours at which pie chart is max size
+
+function getMonthLabel(): string {
+  return `${MONTH_NAMES[calendarMonth]} ${calendarYear}`;
+}
+
+function isCurrentMonth(): boolean {
+  const now = new Date();
+  return calendarYear === now.getFullYear() && calendarMonth === now.getMonth();
+}
+
+function buildCalendarGrid(data: MonthlyCalendarData): { dayNum: number; otherMonth: boolean; isToday: boolean; dayData: CalendarDayData | null }[] {
+  const firstOfMonth = new Date(data.year, data.month, 1);
+  // Monday = 0, Sunday = 6
+  let startDow = firstOfMonth.getDay() - 1;
+  if (startDow < 0) startDow = 6;
+
+  const daysInMonth = new Date(data.year, data.month + 1, 0).getDate();
+  const prevMonthDays = new Date(data.year, data.month, 0).getDate();
+
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+  const grid: { dayNum: number; otherMonth: boolean; isToday: boolean; dayData: CalendarDayData | null }[] = [];
+
+  // Previous month trailing days
+  for (let i = startDow - 1; i >= 0; i--) {
+    grid.push({ dayNum: prevMonthDays - i, otherMonth: true, isToday: false, dayData: null });
+  }
+
+  // Current month days
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${data.year}-${String(data.month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const dayData = data.days.find(d => d.date === dateStr) || null;
+    grid.push({ dayNum: day, otherMonth: false, isToday: dateStr === todayStr, dayData });
+  }
+
+  // Next month leading days to fill out the last row
+  const remaining = grid.length % 7;
+  if (remaining > 0) {
+    for (let i = 1; i <= 7 - remaining; i++) {
+      grid.push({ dayNum: i, otherMonth: true, isToday: false, dayData: null });
+    }
+  }
+
+  return grid;
+}
+
+function buildPieSvg(dayData: CalendarDayData, radius: number): string {
+  if (dayData.timers.length === 0) return '';
+
+  const size = radius * 2;
+  const cx = radius;
+  const cy = radius;
+
+  // Single timer = full circle
+  if (dayData.timers.length === 1) {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+      <circle cx="${cx}" cy="${cy}" r="${radius}" fill="${dayData.timers[0].color}"/>
+    </svg>`;
+  }
+
+  // Multiple timers = pie slices
+  let paths = '';
+  let currentAngle = -Math.PI / 2; // start from top
+
+  for (const timer of dayData.timers) {
+    const fraction = timer.ms / dayData.totalMs;
+    const sliceAngle = fraction * Math.PI * 2;
+
+    // For very small slices, skip to avoid rendering artifacts
+    if (fraction < 0.01) continue;
+
+    const startX = cx + radius * Math.cos(currentAngle);
+    const startY = cy + radius * Math.sin(currentAngle);
+    const endAngle = currentAngle + sliceAngle;
+    const endX = cx + radius * Math.cos(endAngle);
+    const endY = cy + radius * Math.sin(endAngle);
+    const largeArc = sliceAngle > Math.PI ? 1 : 0;
+
+    paths += `<path d="M${cx},${cy} L${startX},${startY} A${radius},${radius} 0 ${largeArc} 1 ${endX},${endY} Z" fill="${timer.color}"/>`;
+    currentAngle = endAngle;
+  }
+
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${paths}</svg>`;
+}
+
+function computeRadius(totalMs: number): number {
+  if (totalMs <= 0) return 0;
+  const hours = totalMs / (1000 * 60 * 60);
+  const fraction = Math.min(hours / MAX_HOURS, 1);
+  return PIE_MIN_RADIUS + fraction * (PIE_MAX_RADIUS - PIE_MIN_RADIUS);
+}
+
+export async function renderCalendar(): Promise<void> {
+  const container = document.getElementById('calendar-container');
+  if (!container) return;
+
+  try {
+    const data: MonthlyCalendarData = await window.timerAPI.getMonthlyCalendar(calendarYear, calendarMonth);
+    const grid = buildCalendarGrid(data);
+    const isCurrent = isCurrentMonth();
+
+    const headerHtml = `
+      <div class="calendar-header">
+        <span class="calendar-nav-btn" id="calendar-prev">&larr;</span>
+        <span class="calendar-label-text">${escapeHtml(getMonthLabel())}</span>
+        <span class="calendar-nav-btn" id="calendar-next"${isCurrent ? ' style="visibility:hidden"' : ''}>&rarr;</span>
+        <span class="calendar-nav-btn" id="calendar-today"${isCurrent ? ' style="visibility:hidden"' : ''}>&rArr;</span>
+      </div>
+    `;
+
+    const weekdaysHtml = `
+      <div class="calendar-weekdays">
+        ${WEEKDAY_LABELS.map(d => `<div class="calendar-weekday">${d}</div>`).join('')}
+      </div>
+    `;
+
+    const gridHtml = `
+      <div class="calendar-grid">
+        ${grid.map(cell => {
+          const classes = ['calendar-day'];
+          if (cell.otherMonth) classes.push('other-month');
+          if (cell.isToday) classes.push('today');
+
+          let pieHtml = '';
+          if (cell.dayData && cell.dayData.totalMs > 0) {
+            const radius = computeRadius(cell.dayData.totalMs);
+            pieHtml = `<div class="calendar-day-pie">${buildPieSvg(cell.dayData, radius)}</div>`;
+          }
+
+          return `<div class="${classes.join(' ')}">
+            <div class="calendar-day-number">${cell.dayNum}</div>
+            ${pieHtml}
+          </div>`;
+        }).join('')}
+      </div>
+    `;
+
+    container.innerHTML = headerHtml + weekdaysHtml + gridHtml;
+
+    // Navigation handlers
+    const prevBtn = document.getElementById('calendar-prev');
+    const nextBtn = document.getElementById('calendar-next');
+    const todayBtn = document.getElementById('calendar-today');
+
+    if (prevBtn) {
+      prevBtn.onclick = () => {
+        calendarMonth--;
+        if (calendarMonth < 0) {
+          calendarMonth = 11;
+          calendarYear--;
+        }
+        renderCalendar();
+      };
+    }
+    if (nextBtn) {
+      nextBtn.onclick = () => {
+        if (!isCurrent) {
+          calendarMonth++;
+          if (calendarMonth > 11) {
+            calendarMonth = 0;
+            calendarYear++;
+          }
+          renderCalendar();
+        }
+      };
+    }
+    if (todayBtn) {
+      todayBtn.onclick = () => {
+        const now = new Date();
+        calendarYear = now.getFullYear();
+        calendarMonth = now.getMonth();
+        renderCalendar();
+      };
+    }
+  } catch (err) {
+    console.error('Failed to render calendar:', err);
   }
 }
